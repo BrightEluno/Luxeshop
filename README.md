@@ -1,50 +1,31 @@
-# Welcome to your Expo app 👋
+# Luxeshop – React Native E-Commerce Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Luxeshop is a modern e-commerce mobile application built with **React Native (Expo + TypeScript)**.  
+The goal of this project is to recreate a professional shopping app UI from a design reference video and progressively implement real-world e-commerce features such as browsing products, searching, product details, cart, checkout, and order tracking.
 
-## Get started
+This project is being developed step-by-step with a clean architecture and best practices, and serves as a strong portfolio project for showcasing mobile application development skills.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Project Objectives
 
-2. Start the app
+- Build a pixel-close UI to the reference design  
+- Use a scalable and standard project structure  
+- Implement file-based routing with Expo Router  
+- Create reusable components and clean styling  
+- Gradually add real e-commerce functionality  
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🛠 Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- React Native  
+- Expo  
+- TypeScript  
+- Expo Router (file-based navigation)  
+- @expo/vector-icons  
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 📁 Project Structure
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
