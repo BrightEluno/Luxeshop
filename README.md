@@ -27,7 +27,7 @@ This project is being developed step-by-step with a clean architecture and best 
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 app/
 (tabs)/
 _layout.tsx
@@ -51,7 +51,7 @@ This structure separates navigation, screens, constants, and data, making the pr
 
 ---
 
-## 📱 Screens
+## Screens
 
 - Home  
 - Search  
@@ -65,7 +65,7 @@ This structure separates navigation, screens, constants, and data, making the pr
 
 ---
 
-## ✅ Current Features
+## Current Features
 
 - Bottom Tab Navigation  
 - Home Header (Logo, Cart, Notifications)  
@@ -76,7 +76,7 @@ This structure separates navigation, screens, constants, and data, making the pr
 
 ---
 
-## 🧩 Planned Features
+## Planned Features
 
 - Flash Sale section & product grid  
 - Product image carousel  
@@ -93,10 +93,17 @@ This structure separates navigation, screens, constants, and data, making the pr
 
 Clone the repository:
 
-npm install
+1. Install dependencies
 
+   ```bash
+   npm install
+   ```
 
-npx expo start
+2. Start the app
+
+   ```bash
+   npx expo start
+   ```
 
 
 
