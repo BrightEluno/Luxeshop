@@ -28,4 +28,76 @@ This project is being developed step-by-step with a clean architecture and best 
 ---
 
 ## 📁 Project Structure
+app/
+(tabs)/
+_layout.tsx
+index.tsx # Home Screen
+wishlist.tsx
+transaction.tsx
+profile.tsx
+
+search.tsx
+product/
+[id].tsx
+
+src/
+constants/
+colors.ts
+data/
+categories.ts
+
+
+This structure separates navigation, screens, constants, and data, making the project scalable and easy to maintain.
+
+---
+
+## 📱 Screens
+
+- Home  
+- Search  
+- Product Detail  
+- Wishlist  
+- Transaction History  
+- Profile  
+- Cart (coming soon)  
+- Checkout (coming soon)  
+- Order Tracking (coming soon)  
+
+---
+
+## ✅ Current Features
+
+- Bottom Tab Navigation  
+- Home Header (Logo, Cart, Notifications)  
+- Search Bar  
+- Delivery Address Section  
+- Horizontal Categories List  
+- Centralized color system  
+
+---
+
+## 🧩 Planned Features
+
+- Flash Sale section & product grid  
+- Product image carousel  
+- Add to Cart & Remove from Cart  
+- Cart Screen  
+- Checkout Flow  
+- Order Tracking  
+- Authentication (Login / Signup)  
+- Backend integration  
+
+---
+
+## ⚙️ Installation & Setup
+
+Clone the repository:
+
+npm install
+
+
+npx expo start
+
+
+
 
