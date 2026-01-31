@@ -17,7 +17,7 @@ This project is being developed step-by-step with a clean architecture and best 
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - React Native  
 - Expo  
