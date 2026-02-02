@@ -16,6 +16,7 @@ import Colors from "../../src/constants/colors";
 import { useCart } from "../../src/context/CartContext";
 import { useWishlist } from "../../src/context/WishlistContext";
 import { flashSaleProducts } from "../../src/data/home";
+import { reviews } from "../../src/data/reviews";
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -156,6 +157,25 @@ export default function ProductDetailScreen() {
             improved to match the reference UI (description, reviews,
             variations, and more).
           </Text>
+          {/* Reviews */}
+          <View style={styles.reviewHeader}>
+            <Text style={styles.reviewTitle}>Reviews</Text>
+            <Text style={styles.seeAll}>See All</Text>
+          </View>
+
+          {reviews.slice(0, 2).map((review) => (
+            <View key={review.id} style={styles.reviewCard}>
+              <View style={styles.reviewTop}>
+                <Text style={styles.reviewUser}>{review.user}</Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <Text style={styles.ratingText}>{review.rating}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.reviewComment}>{review.comment}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
 
@@ -415,4 +435,55 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: "900",
   },
+
+  reviewHeader: {
+  marginTop: 24,
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
+
+reviewTitle: {
+  fontSize: 15,
+  fontWeight: "900",
+  color: Colors.text,
+},
+
+seeAll: {
+  fontSize: 13,
+  fontWeight: "700",
+  color: Colors.gray,
+},
+
+reviewCard: {
+  marginTop: 12,
+  backgroundColor: Colors.white,
+  borderRadius: 14,
+  padding: 12,
+},
+
+reviewTop: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
+
+reviewUser: {
+  fontSize: 13,
+  fontWeight: "800",
+  color: Colors.text,
+},
+
+reviewComment: {
+  marginTop: 6,
+  fontSize: 12,
+  color: Colors.gray,
+  lineHeight: 18,
+},
+ratingText: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: Colors.text,
+},
+
 });
