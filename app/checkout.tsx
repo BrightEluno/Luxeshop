@@ -199,7 +199,7 @@ export default function CheckoutScreen() {
         >
           <Text style={styles.placeText}>Place Order</Text>
         </Pressable>
-      </View>
+      </View>  
     </View>
   );
 }
