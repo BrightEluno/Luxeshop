@@ -185,14 +185,14 @@ export default function CheckoutScreen() {
           style={styles.placeBtn}
           onPress={() => {
             addOrder({
-              items,
+              items,  
               subtotal: totalPrice,
               shipping: shippingFee,
               discount,
               total: grandTotal,
             });
 
-            clearCart();
+            clearCart(); 
             router.replace("/success");
 
           }}
