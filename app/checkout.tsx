@@ -202,7 +202,7 @@ export default function CheckoutScreen() {
       </View>  
     </View>
   );
-}
+}  
 
 const styles = StyleSheet.create({
   container: {
