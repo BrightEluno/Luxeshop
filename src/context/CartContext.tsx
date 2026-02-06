@@ -6,6 +6,8 @@ export type CartItem = {
   price: number;
   image: any;
   qty: number;
+  color?: string;
+  storage?: string;
 };
 
 type CartContextType = {
@@ -24,17 +26,28 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem: CartContextType["addItem"] = (item, qty = 1) => {
-    setItems((prev) => {
-      const found = prev.find((p) => p.id === item.id);
-      if (found) {
-        return prev.map((p) =>
-          p.id === item.id ? { ...p, qty: p.qty + qty } : p
-        );
-      }
-      return [...prev, { ...item, qty }];
-    });
-  };
+  const addItem = (
+  item: Omit<CartItem, "qty"> & { color?: string; storage?: string },
+  qty = 1
+) => {
+  setItems((prev) => {
+    const existingIndex = prev.findIndex(
+      (p) => p.id === item.id && p.color === item.color && p.storage === item.storage
+    );
+
+    if (existingIndex >= 0) {
+      const copy = [...prev];
+      copy[existingIndex] = {
+        ...copy[existingIndex],
+        qty: copy[existingIndex].qty + qty,
+      };
+      return copy;
+    }
+
+    return [...prev, { ...item, qty }];
+  });
+};
+
 
   const removeItem = (id: string) => {
     setItems((prev) => prev.filter((p) => p.id !== id));

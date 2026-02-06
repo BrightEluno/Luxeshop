@@ -65,7 +65,7 @@ export const flashSaleProducts: Product[] = [
     image: require("../assets/images/iphone_16e.png"),
   },
   {
-    id: "6",
+    id: "7",
     name: "Galaxy S25 5G",
     price: 899.0,
     rating: 4.9,

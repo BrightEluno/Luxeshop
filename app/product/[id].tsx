@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -9,9 +9,9 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
-import { useWindowDimensions } from "react-native";
 import Colors from "../../src/constants/colors";
 import { useCart } from "../../src/context/CartContext";
 import { useWishlist } from "../../src/context/WishlistContext";
@@ -24,11 +24,18 @@ export default function ProductDetailScreen() {
   const [selectedColor, setSelectedColor] = useState(0);
   const [qty, setQty] = useState(1);
 
+  // Dots state
+  const [activeSlide, setActiveSlide] = useState(0);
+  const carouselRef = useRef<FlatList<any>>(null);
+
   const product = flashSaleProducts.find((p) => String(p.id) === String(id));
 
   const { addItem } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { width } = useWindowDimensions();
+  const sizes = ["64GB", "128GB", "256GB"];
+  const colors = ["#F97316", "#111827", "#2563EB"];
+  const [selectedSize, setSelectedSize] = useState(sizes[0]);
 
   if (!product) {
     return (
@@ -38,7 +45,7 @@ export default function ProductDetailScreen() {
     );
   }
 
-  //  define liked AFTER product exists
+  // define liked AFTER product exists
   const liked = isInWishlist?.(product.id) ?? false;
 
   return (
@@ -78,6 +85,7 @@ export default function ProductDetailScreen() {
       >
         {/* Image Carousel */}
         <FlatList
+          ref={carouselRef}
           data={[product.image, product.image, product.image]}
           horizontal
           pagingEnabled
@@ -85,6 +93,10 @@ export default function ProductDetailScreen() {
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
           keyExtractor={(_, i) => i.toString()}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(e.nativeEvent.contentOffset.x / width);
+            setActiveSlide(index);
+          }}
           renderItem={({ item }) => (
             <View style={[styles.slide, { width }]}>
               <View style={styles.imageCard}>
@@ -93,6 +105,16 @@ export default function ProductDetailScreen() {
             </View>
           )}
         />
+
+        {/* Pagination Dots */}
+        <View style={styles.dotsRow}>
+          {[0, 1, 2].map((i) => (
+            <View
+              key={i}
+              style={[styles.dot, activeSlide === i && styles.activeDot]}
+            />
+          ))}
+        </View>
 
         {/* Info */}
         <View style={styles.info}>
@@ -118,9 +140,9 @@ export default function ProductDetailScreen() {
           {/* Colors */}
           <Text style={styles.optionTitle}>Color</Text>
           <View style={styles.colorRow}>
-            {["#F97316", "#111827", "#2563EB"].map((color, index) => (
+            {colors.map((color, index) => (
               <Pressable
-                key={index}
+                key={color}
                 onPress={() => setSelectedColor(index)}
                 style={[
                   styles.colorCircle,
@@ -129,6 +151,28 @@ export default function ProductDetailScreen() {
                 ]}
               />
             ))}
+          </View>
+
+          {/* Size / Storage */}
+          <Text style={styles.optionTitle}>Storage</Text>
+
+          <View style={styles.sizeRow}>
+            {sizes.map((s) => {
+              const active = selectedSize === s;
+              return (
+                <Pressable
+                  key={s}
+                  onPress={() => setSelectedSize(s)}
+                  style={[styles.sizePill, active && styles.sizePillActive]}
+                >
+                  <Text
+                    style={[styles.sizeText, active && styles.sizeTextActive]}
+                  >
+                    {s}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           {/* Quantity */}
@@ -157,6 +201,7 @@ export default function ProductDetailScreen() {
             improved to match the reference UI (description, reviews,
             variations, and more).
           </Text>
+
           {/* Reviews */}
           <View style={styles.reviewHeader}>
             <Text style={styles.reviewTitle}>Reviews</Text>
@@ -167,15 +212,62 @@ export default function ProductDetailScreen() {
             <View key={review.id} style={styles.reviewCard}>
               <View style={styles.reviewTop}>
                 <Text style={styles.reviewUser}>{review.user}</Text>
-                <View style={styles.ratingRow}>
+                <View style={styles.reviewRatingRow}>
                   <Ionicons name="star" size={14} color="#F59E0B" />
-                  <Text style={styles.ratingText}>{review.rating}</Text>
+                  <Text style={styles.reviewRatingText}>{review.rating}</Text>
                 </View>
               </View>
 
               <Text style={styles.reviewComment}>{review.comment}</Text>
             </View>
           ))}
+
+          {/* Related Products */}
+          <View style={styles.relatedHeader}>
+            <Text style={styles.relatedTitle}>Related Products</Text>
+            <Text style={styles.seeAll}>See All</Text>
+          </View>
+
+          <FlatList
+            data={flashSaleProducts
+              .filter((p) => p.id !== product.id)
+              .slice(0, 4)}
+            keyExtractor={(item) => String(item.id)}
+            numColumns={2}
+            scrollEnabled={false}
+            columnWrapperStyle={styles.relatedRow}
+            renderItem={({ item }) => (
+              <Pressable
+                style={styles.relatedCard}
+                onPress={() => router.push(`/product/${item.id}`)}
+              >
+                <View style={styles.discountBadge}>
+                  <Text style={styles.discountText}>
+                    -{item.discountPercent}%
+                  </Text>
+                </View>
+
+                <Image source={item.image} style={styles.relatedImage} />
+
+                <Text style={styles.relatedName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+
+                <Text style={styles.relatedPrice}>
+                  £{item.price.toFixed(2)}
+                </Text>
+
+                <View style={styles.relatedMeta}>
+                  <View style={styles.reviewRatingRow}>
+                    <Ionicons name="star" size={14} color="#F59E0B" />
+                    <Text style={styles.reviewRatingText}>{item.rating}</Text>
+                  </View>
+
+                  <Text style={styles.soldText}>{item.sold} sold</Text>
+                </View>
+              </Pressable>
+            )}
+          />
         </View>
       </ScrollView>
 
@@ -263,6 +355,10 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
 
+  slide: {
+    paddingHorizontal: 16,
+  },
+
   imageCard: {
     marginTop: 16,
     backgroundColor: Colors.white,
@@ -271,14 +367,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  slide: {
-    paddingHorizontal: 16,
-  },
 
   image: {
     width: "100%",
     height: 240,
     resizeMode: "contain",
+  },
+
+  dotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#D1D5DB",
+  },
+
+  activeDot: {
+    width: 18,
+    backgroundColor: Colors.primary,
   },
 
   info: {
@@ -437,53 +550,165 @@ const styles = StyleSheet.create({
   },
 
   reviewHeader: {
-  marginTop: 24,
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+    marginTop: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-reviewTitle: {
-  fontSize: 15,
-  fontWeight: "900",
-  color: Colors.text,
-},
+  reviewTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: Colors.text,
+  },
 
-seeAll: {
-  fontSize: 13,
-  fontWeight: "700",
-  color: Colors.gray,
-},
+  seeAll: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.gray,
+  },
 
-reviewCard: {
-  marginTop: 12,
-  backgroundColor: Colors.white,
-  borderRadius: 14,
-  padding: 12,
-},
+  reviewCard: {
+    marginTop: 12,
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    padding: 12,
+  },
 
-reviewTop: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+  reviewTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-reviewUser: {
-  fontSize: 13,
-  fontWeight: "800",
-  color: Colors.text,
-},
+  reviewUser: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.text,
+  },
 
-reviewComment: {
-  marginTop: 6,
-  fontSize: 12,
-  color: Colors.gray,
-  lineHeight: 18,
-},
-ratingText: {
-  fontSize: 12,
-  fontWeight: "800",
-  color: Colors.text,
-},
+  reviewComment: {
+    marginTop: 6,
+    fontSize: 12,
+    color: Colors.gray,
+    lineHeight: 18,
+  },
 
+  reviewRatingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  reviewRatingText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+
+  relatedHeader: {
+    marginTop: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  relatedTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: Colors.text,
+  },
+
+  relatedRow: {
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+
+  relatedCard: {
+    width: "48%",
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+
+  relatedImage: {
+    width: "100%",
+    height: 92,
+    resizeMode: "contain",
+    marginTop: 12,
+  },
+
+  relatedName: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+
+  relatedPrice: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "900",
+    color: Colors.text,
+  },
+
+  relatedMeta: {
+    marginTop: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  soldText: {
+    fontSize: 12,
+    color: Colors.gray,
+  },
+
+  discountBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    zIndex: 1,
+  },
+
+  discountText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sizeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 10,
+  },
+
+  sizePill: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: Colors.white,
+  },
+
+  sizePillActive: {
+    backgroundColor: "#FFE7DF",
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+
+  sizeText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.gray,
+  },
+
+  sizeTextActive: {
+    color: Colors.primary,
+  },
 });
