@@ -100,6 +100,8 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
+  
+
   primaryBtn: {
     height: 50,
     borderRadius: 14,
