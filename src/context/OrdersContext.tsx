@@ -48,7 +48,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const clearOrders = () => setOrders([]);
 
   const value = useMemo(
-    () => ({ orders, addOrder, clearOrders }),
+    () => ({ orders, addOrder, clearOrders }),  
     [orders]
   );
 
