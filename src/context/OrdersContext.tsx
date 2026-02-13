@@ -50,7 +50,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({ orders, addOrder, clearOrders }),  
     [orders]
-  );
+  ); 
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;
 }
