@@ -54,7 +54,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;
 }
-
+  
 export function useOrders() {
   const ctx = useContext(OrdersContext);
   if (!ctx) throw new Error("useOrders must be used inside OrdersProvider");
