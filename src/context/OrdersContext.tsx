@@ -51,7 +51,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     () => ({ orders, addOrder, clearOrders }),  
     [orders]
   ); 
-
+  
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;
 }
 
