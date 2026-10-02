@@ -1,32 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
   FlatList,
-  Image,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import Colors from "../../src/constants/colors";
+import { useThemedStyles } from "@/src/context/ThemeContext";
+import type { Palette } from "@/src/constants/colors";
 import { useCart } from "../../src/context/CartContext";
 import { useWishlist } from "../../src/context/WishlistContext";
 import { Product } from "../../src/data/home";
-import { formatPrice } from "@/src/utils/format";
+import { Price } from "@/components/price";
+import { SkeletonRow } from "@/components/skeleton";
+import { successFeedback, tapFeedback, warningFeedback } from "@/src/utils/haptics";
 
 export default function WishlistScreen() {
-  const { items, count, removeFromWishlist } = useWishlist();
-  const { addItem } = useCart();
+  const { Colors, styles } = useThemedStyles(createStyles);
+  const { items, count, loaded, removeFromWishlist } = useWishlist();
+  const { addItem, remainingStock } = useCart();
   const [addedId, setAddedId] = useState<string | null>(null);
 
   function handleAddToCart(product: Product) {
     // Use the default (first) colour and storage; the product page lets the
     // user pick other options.
     const storage = product.storage?.[0];
-    addItem({
+    const added = addItem({
       id: product.id,
       name: product.name,
       price: storage?.price ?? product.price,
@@ -34,6 +38,11 @@ export default function WishlistScreen() {
       color: product.colors?.[0]?.name,
       storage: storage?.label,
     });
+    if (added === 0) {
+      warningFeedback();
+      return;
+    }
+    successFeedback();
     setAddedId(product.id);
     setTimeout(() => setAddedId((cur) => (cur === product.id ? null : cur)), 1500);
   }
@@ -72,7 +81,12 @@ export default function WishlistScreen() {
         )}
       </View>
 
-      {count === 0 ? (
+      {!loaded ? (
+        <View>
+          <SkeletonRow />
+          <SkeletonRow />
+        </View>
+      ) : count === 0 ? (
         <View style={styles.empty}>
           <View style={styles.emptyIcon}>
             <Ionicons name="heart-outline" size={34} color={Colors.primary} />
@@ -94,6 +108,8 @@ export default function WishlistScreen() {
           renderItem={({ item }) => {
             const added = addedId === item.id;
             const hasOptions = (item.storage?.length ?? 0) > 1;
+            const soldOut = item.stock <= 0;
+            const unavailable = soldOut || remainingStock(item.id) === 0;
 
             return (
               <Pressable
@@ -101,7 +117,7 @@ export default function WishlistScreen() {
                 onPress={() => router.push(`/product/${item.id}`)}
               >
                 <View style={styles.imageBox}>
-                  <Image source={item.image} style={styles.img} />
+                  <Image source={item.image} style={styles.img} contentFit="contain" />
                 </View>
 
                 <View style={styles.info}>
@@ -113,30 +129,37 @@ export default function WishlistScreen() {
                   <Text style={styles.name} numberOfLines={2}>
                     {item.name}
                   </Text>
-                  <Text style={styles.price}>
-                    {hasOptions && <Text style={styles.fromText}>From </Text>}
-                    {formatPrice(item.price)}
-                  </Text>
+                  <View style={styles.price}>
+                    <Price price={item.price} originalPrice={item.originalPrice} from={hasOptions} />
+                  </View>
 
                   <Pressable
                     onPress={() => handleAddToCart(item)}
-                    style={[styles.cartBtn, added && styles.cartBtnAdded]}
+                    disabled={unavailable && !added}
+                    style={[
+                      styles.cartBtn,
+                      added && styles.cartBtnAdded,
+                      unavailable && !added && { opacity: 0.5 },
+                    ]}
                   >
                     <Ionicons
                       name={added ? "checkmark" : "cart-outline"}
                       size={15}
-                      color={added ? Colors.white : Colors.primary}
+                      color={added ? Colors.onPrimary : Colors.primary}
                     />
                     <Text
                       style={[styles.cartBtnText, added && styles.cartBtnTextAdded]}
                     >
-                      {added ? "Added" : "Add to cart"}
+                      {added ? "Added" : soldOut ? "Sold out" : unavailable ? "All in cart" : "Add to cart"}
                     </Text>
                   </Pressable>
                 </View>
 
                 <Pressable
-                  onPress={() => removeFromWishlist(item.id)}
+                  onPress={() => {
+                    tapFeedback();
+                    removeFromWishlist(item.id);
+                  }}
                   style={styles.removeBtn}
                   hitSlop={12}
                   accessibilityLabel={`Remove ${item.name} from wishlist`}
@@ -152,7 +175,8 @@ export default function WishlistScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -193,7 +217,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
@@ -214,10 +238,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     borderRadius: 12,
   },
-  shopBtnText: { color: Colors.white, fontWeight: "800" },
+  shopBtnText: { color: Colors.onPrimary, fontWeight: "800" },
 
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 12,
     flexDirection: "row",
@@ -233,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  img: { width: 70, height: 70, resizeMode: "contain" },
+  img: { width: 70, height: 70 },
 
   info: { flex: 1, alignItems: "flex-start" },
   newBadge: {
@@ -243,10 +267,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 4,
   },
-  newBadgeText: { color: Colors.white, fontSize: 10, fontWeight: "900" },
+  newBadgeText: { color: Colors.onPrimary, fontSize: 10, fontWeight: "900" },
   name: { fontSize: 13, fontWeight: "900", color: Colors.text },
-  price: { marginTop: 4, fontSize: 14, fontWeight: "900", color: Colors.text },
-  fromText: { fontSize: 11, fontWeight: "700", color: Colors.gray },
+  price: { marginTop: 4 },
 
   cartBtn: {
     marginTop: 8,
@@ -256,18 +279,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
   },
   cartBtnAdded: { backgroundColor: Colors.primary },
   cartBtnText: { fontSize: 12, fontWeight: "800", color: Colors.primary },
-  cartBtnTextAdded: { color: Colors.white },
+  cartBtnTextAdded: { color: Colors.onPrimary },
 
   removeBtn: {
     alignSelf: "flex-start",
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },

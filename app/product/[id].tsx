@@ -1,25 +1,35 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as Linking from "expo-linking";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
-  Image,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
 
-import Colors from "../../src/constants/colors";
+import { Price, stockLabel } from "@/components/price";
+import { useRecentlyViewed } from "@/src/context/RecentlyViewedContext";
+import { useReviews } from "@/src/context/ReviewsContext";
+import { successFeedback, tapFeedback, warningFeedback } from "@/src/utils/haptics";
+
+import { useThemedStyles } from "@/src/context/ThemeContext";
+import type { Palette } from "@/src/constants/colors";
+import { GlassIconButton } from "@/components/glass-icon-button";
 import { useCart } from "../../src/context/CartContext";
 import { useWishlist } from "../../src/context/WishlistContext";
-import { flashSaleProducts } from "../../src/data/home";
-import { reviews } from "../../src/data/reviews";
+import { ProductCard } from "@/components/product-card";
+import { allProducts, getProduct } from "../../src/data/products";
 import { formatPrice } from "@/src/utils/format";
 
 export default function ProductDetailScreen() {
+  const { Colors, styles } = useThemedStyles(createStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [selectedColor, setSelectedColor] = useState(0);
@@ -33,11 +43,17 @@ export default function ProductDetailScreen() {
   // Mirrors selectedColor for the focus handler below
   const selectedColorRef = useRef(0);
 
-  const product = flashSaleProducts.find((p) => String(p.id) === String(id));
+  const product = getProduct(String(id));
 
-  const { addItem } = useCart();
+  const { addItem, remainingStock } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
+  const { addViewed } = useRecentlyViewed();
+  const { getReviews } = useReviews();
   const { width } = useWindowDimensions();
+
+  useEffect(() => {
+    if (product) addViewed(product.id);
+  }, [product, addViewed]);
 
   function scrollToColor(index: number, animated: boolean) {
     scrollTarget.current = index;
@@ -75,8 +91,24 @@ export default function ProductDetailScreen() {
   const color = colors[selectedColor];
   const storage = storageOptions[selectedStorage];
 
-  // One slide per colour, or just the product image
-  const slides = colors.length > 0 ? colors.map((c) => c.image) : [product.image];
+  // One slide per colour, otherwise the product's photo gallery
+  const slides =
+    colors.length > 0
+      ? colors.map((c) => c.image)
+      : (product.images ?? [product.image]);
+
+  const reviews = getReviews(product.id);
+
+  // Stock is shared by all variants; what's already in the cart counts against it
+  const available = remainingStock(product.id);
+  const soldOut = product.stock <= 0;
+  const stock = stockLabel(product.stock);
+
+  // Same category first, topped up with other products if there are few
+  const related = [
+    ...allProducts.filter((p) => p.category === product.category && p.id !== product.id),
+    ...allProducts.filter((p) => p.category !== product.category),
+  ].slice(0, 4);
 
   const cartItem = {
     id: product.id,
@@ -87,12 +119,37 @@ export default function ProductDetailScreen() {
     storage: storage?.label,
   };
 
+  function handleAdd(then: "/cart" | "/checkout") {
+    const added = addItem(cartItem, Math.min(qty, available));
+    if (added > 0) {
+      successFeedback();
+      setQty(1);
+      router.push(then);
+    } else {
+      warningFeedback();
+    }
+  }
+
+  async function handleShare() {
+    if (!product) return;
+    const url = Linking.createURL(`/product/${product.id}`);
+    try {
+      await Share.share({
+        message: `${product.name} for ${formatPrice(storage?.price ?? product.price)} on Luxeshop: ${url}`,
+        url,
+      });
+    } catch {
+      // Sharing was cancelled or isn't supported (e.g. some desktop browsers)
+    }
+  }
+
   function updateColor(index: number) {
     selectedColorRef.current = index;
     setSelectedColor(index);
   }
 
   function selectColor(index: number) {
+    tapFeedback();
     updateColor(index);
     scrollToColor(index, true);
   }
@@ -111,24 +168,32 @@ export default function ProductDetailScreen() {
   return (
     <View style={styles.container}>
       {/* Top Bar */}
+      {/* Floats over the content so it scrolls underneath the glass buttons */}
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+        <GlassIconButton onPress={() => router.back()} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
-        </Pressable>
+        </GlassIconButton>
 
-        <Text style={styles.pageTitle}>Product</Text>
+        <View style={styles.topBarRight}>
+          <GlassIconButton onPress={handleShare} accessibilityLabel="Share">
+            <Ionicons name="share-outline" size={21} color={Colors.text} />
+          </GlassIconButton>
 
-        <Pressable
-          onPress={() => toggleWishlist(product.id)}
-          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.6 }]}
-          hitSlop={12}
-        >
-          <Ionicons
-            name={liked ? "heart" : "heart-outline"}
-            size={22}
-            color={liked ? Colors.primary : Colors.text}
-          />
-        </Pressable>
+          <GlassIconButton
+            onPress={() => {
+              tapFeedback();
+              toggleWishlist(product.id);
+            }}
+            hitSlop={12}
+            accessibilityLabel={liked ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <Ionicons
+              name={liked ? "heart" : "heart-outline"}
+              size={22}
+              color={liked ? Colors.primary : Colors.text}
+            />
+          </GlassIconButton>
+        </View>
       </View>
 
       {/* Scrollable Content */}
@@ -157,7 +222,7 @@ export default function ProductDetailScreen() {
           renderItem={({ item }) => (
             <View style={[styles.slide, { width }]}>
               <View style={styles.imageCard}>
-                <Image source={item} style={styles.image} />
+                <Image source={item} style={styles.image} contentFit="contain" transition={200} />
               </View>
             </View>
           )}
@@ -189,13 +254,21 @@ export default function ProductDetailScreen() {
             )}
           </View>
 
-          <Text style={styles.price}>
-            {formatPrice(storage?.price ?? product.price)}
+          <View style={styles.price}>
+            <Price
+              price={storage?.price ?? product.price}
+              originalPrice={storage ? undefined : product.originalPrice}
+              size="large"
+            />
+          </View>
+
+          <Text style={[styles.stockText, soldOut && styles.stockSoldOut]}>
+            {stock ?? "In stock"}
           </Text>
 
           <View style={styles.metaRow}>
             <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color="#F59E0B" />
+              <Ionicons name="star" size={14} color={Colors.star} />
               <Text style={styles.metaText}>{product.rating}</Text>
             </View>
 
@@ -240,7 +313,10 @@ export default function ProductDetailScreen() {
                   return (
                     <Pressable
                       key={s.label}
-                      onPress={() => setSelectedStorage(index)}
+                      onPress={() => {
+                        tapFeedback();
+                        setSelectedStorage(index);
+                      }}
                       style={[styles.sizePill, active && styles.sizePillActive]}
                     >
                       <Text
@@ -264,6 +340,7 @@ export default function ProductDetailScreen() {
             <Pressable
               style={styles.qtyBtn}
               onPress={() => setQty((prev) => (prev > 1 ? prev - 1 : prev))}
+              accessibilityLabel="Decrease quantity"
             >
               <Ionicons name="remove" size={18} color={Colors.text} />
             </Pressable>
@@ -271,12 +348,19 @@ export default function ProductDetailScreen() {
             <Text style={styles.qtyText}>{qty}</Text>
 
             <Pressable
-              style={styles.qtyBtn}
-              onPress={() => setQty((prev) => prev + 1)}
+              style={[styles.qtyBtn, qty >= available && { opacity: 0.4 }]}
+              disabled={qty >= available}
+              onPress={() => setQty((prev) => Math.min(prev + 1, available))}
+              accessibilityLabel="Increase quantity"
             >
               <Ionicons name="add" size={18} color={Colors.text} />
             </Pressable>
           </View>
+          {!soldOut && available === 0 && (
+            <Text style={styles.stockSoldOut}>
+              You already have all available stock in your cart.
+            </Text>
+          )}
 
           {/* Description */}
           <Text style={styles.desc}>
@@ -286,16 +370,21 @@ export default function ProductDetailScreen() {
 
           {/* Reviews */}
           <View style={styles.reviewHeader}>
-            <Text style={styles.reviewTitle}>Reviews</Text>
-            <Text style={styles.seeAll}>See All</Text>
+            <Text style={styles.reviewTitle}>Reviews ({reviews.length})</Text>
+            <Pressable
+              onPress={() => router.push(`/reviews/${product.id}`)}
+              hitSlop={8}
+            >
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
           </View>
 
-          {reviews.slice(0, 2).map((review) => (
-            <View key={review.id} style={styles.reviewCard}>
+          {reviews.slice(0, 2).map((review, i) => (
+            <View key={`${review.user}-${i}`} style={styles.reviewCard}>
               <View style={styles.reviewTop}>
                 <Text style={styles.reviewUser}>{review.user}</Text>
                 <View style={styles.reviewRatingRow}>
-                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <Ionicons name="star" size={14} color={Colors.star} />
                   <Text style={styles.reviewRatingText}>{review.rating}</Text>
                 </View>
               </View>
@@ -307,86 +396,61 @@ export default function ProductDetailScreen() {
           {/* Related Products */}
           <View style={styles.relatedHeader}>
             <Text style={styles.relatedTitle}>Related Products</Text>
-            <Text style={styles.seeAll}>See All</Text>
+            <Pressable
+              onPress={() => router.push(`/category/${product.category}`)}
+              hitSlop={8}
+            >
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
           </View>
 
           <FlatList
-            data={flashSaleProducts
-              .filter((p) => p.id !== product.id)
-              .slice(0, 4)}
-            keyExtractor={(item) => String(item.id)}
+            data={related}
+            keyExtractor={(item) => item.id}
             numColumns={2}
             scrollEnabled={false}
             columnWrapperStyle={styles.relatedRow}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.relatedCard}
-                onPress={() => router.push(`/product/${item.id}`)}
-              >
-                {(item.isNew || item.discountPercent > 0) && (
-                  <View style={styles.discountBadge}>
-                    <Text style={styles.discountText}>
-                      {item.isNew ? "NEW" : `-${item.discountPercent}%`}
-                    </Text>
-                  </View>
-                )}
-
-                <Image source={item.image} style={styles.relatedImage} />
-
-                <Text style={styles.relatedName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-
-                <Text style={styles.relatedPrice}>
-                  {formatPrice(item.price)}
-                </Text>
-
-                <View style={styles.relatedMeta}>
-                  <View style={styles.reviewRatingRow}>
-                    <Ionicons name="star" size={14} color="#F59E0B" />
-                    <Text style={styles.reviewRatingText}>{item.rating}</Text>
-                  </View>
-
-                  <Text style={styles.soldText}>{item.sold} sold</Text>
-                </View>
-              </Pressable>
-            )}
+            renderItem={({ item }) => <ProductCard product={item} />}
           />
         </View>
       </ScrollView>
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        <Pressable
-          style={styles.cartBtn}
-          onPress={() => {
-            addItem(cartItem, qty);
-            router.push("/cart");
-          }}
-        >
-          <Ionicons name="cart-outline" size={18} color={Colors.primary} />
-          <Text style={styles.cartBtnText}>Add to Cart</Text>
-        </Pressable>
+        {soldOut ? (
+          <View style={[styles.buyBtn, styles.soldOutBtn]}>
+            <Text style={styles.buyBtnText}>Sold Out</Text>
+          </View>
+        ) : (
+          <>
+            <Pressable
+              style={[styles.cartBtn, available === 0 && { opacity: 0.4 }]}
+              disabled={available === 0}
+              onPress={() => handleAdd("/cart")}
+            >
+              <Ionicons name="cart-outline" size={18} color={Colors.primary} />
+              <Text style={styles.cartBtnText}>Add to Cart</Text>
+            </Pressable>
 
-        <Pressable
-          style={styles.buyBtn}
-          onPress={() => {
-            addItem(cartItem, qty);
-            router.push("/checkout");
-          }}
-        >
-          <Text style={styles.buyBtnText}>Buy Now</Text>
-        </Pressable>
+            <Pressable
+              style={[styles.buyBtn, available === 0 && { opacity: 0.4 }]}
+              disabled={available === 0}
+              onPress={() => handleAdd("/checkout")}
+            >
+              <Text style={styles.buyBtnText}>Buy Now</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: 60,
   },
 
   center: {
@@ -397,6 +461,12 @@ const styles = StyleSheet.create({
   },
 
   topBar: {
+    position: "absolute",
+    // Let touches between the buttons reach the content underneath
+    pointerEvents: "box-none",
+    top: 60,
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
@@ -404,22 +474,32 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
 
-  pageTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: Colors.text,
+  topBarRight: {
+    flexDirection: "row",
+    gap: 10,
   },
 
-  iconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
-    alignItems: "center",
-    justifyContent: "center",
+  stockText: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.success,
+  },
+
+  stockSoldOut: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.danger,
+  },
+
+  soldOutBtn: {
+    backgroundColor: Colors.gray,
   },
 
   scrollContent: {
+    // Room for the floating top bar (60 status area + 44 buttons)
+    paddingTop: 104,
     paddingBottom: 110,
   },
 
@@ -429,7 +509,7 @@ const styles = StyleSheet.create({
 
   imageCard: {
     marginTop: 16,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 18,
     padding: 18,
     alignItems: "center",
@@ -439,7 +519,6 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: 240,
-    resizeMode: "contain",
   },
 
   dotsRow: {
@@ -454,7 +533,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 999,
-    backgroundColor: "#D1D5DB",
+    backgroundColor: Colors.muted,
   },
 
   activeDot: {
@@ -489,16 +568,13 @@ const styles = StyleSheet.create({
   },
 
   badgeText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontWeight: "800",
     fontSize: 12,
   },
 
   price: {
     marginTop: 10,
-    fontSize: 20,
-    fontWeight: "900",
-    color: Colors.text,
   },
 
   metaRow: {
@@ -573,7 +649,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -596,7 +672,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -609,7 +685,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -631,7 +707,7 @@ const styles = StyleSheet.create({
   },
 
   buyBtnText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontWeight: "900",
   },
 
@@ -656,7 +732,7 @@ const styles = StyleSheet.create({
 
   reviewCard: {
     marginTop: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 14,
     padding: 12,
   },
@@ -710,64 +786,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 
-  relatedCard: {
-    width: "48%",
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
-    overflow: "hidden",
-  },
 
-  relatedImage: {
-    width: "100%",
-    height: 92,
-    resizeMode: "contain",
-    marginTop: 12,
-  },
 
-  relatedName: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "800",
-    color: Colors.text,
-  },
 
-  relatedPrice: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: "900",
-    color: Colors.text,
-  },
 
-  relatedMeta: {
-    marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
 
-  soldText: {
-    fontSize: 12,
-    color: Colors.gray,
-  },
 
-  discountBadge: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    zIndex: 1,
-  },
 
-  discountText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: "800",
-  },
   sizeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -779,11 +804,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
 
   sizePillActive: {
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
     borderWidth: 1,
     borderColor: Colors.primary,
   },

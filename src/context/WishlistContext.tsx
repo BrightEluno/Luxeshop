@@ -1,13 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-import { flashSaleProducts, Product } from "../data/home";
+import type { Product } from "../data/home";
+import { getProduct } from "../data/products";
 
 const STORAGE_KEY = "luxeshop:wishlist";
 
 type WishlistContextType = {
   items: Product[];
   count: number;
+  /** False until the saved wishlist has been read from the device */
+  loaded: boolean;
   toggleWishlist: (id: string) => void;
   removeFromWishlist: (id: string) => void;
   isInWishlist: (id: string) => boolean;
@@ -24,7 +27,10 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        if (raw) setIds(JSON.parse(raw));
+        if (!raw) return;
+        const saved: string[] = JSON.parse(raw);
+        // Keep anything toggled while loading
+        setIds((prev) => [...saved.filter((id) => !prev.includes(id)), ...prev]);
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
@@ -39,7 +45,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const items = useMemo(
     () =>
       ids
-        .map((id) => flashSaleProducts.find((p) => p.id === id))
+        .map((id) => getProduct(id))
         .filter((p): p is Product => !!p),
     [ids],
   );
@@ -63,6 +69,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       value={{
         items,
         count: items.length,
+        loaded,
         toggleWishlist,
         removeFromWishlist,
         isInWishlist,

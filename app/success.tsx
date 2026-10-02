@@ -1,21 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Colors from "../src/constants/colors";
+import { useThemedStyles } from "@/src/context/ThemeContext";
+import type { Palette } from "@/src/constants/colors";
 
 export default function SuccessScreen() {
+  const { Colors, styles } = useThemedStyles(createStyles);
+  const { orderId } = useLocalSearchParams<{ orderId?: string }>();
   return (
     <View style={styles.container}>
       <View style={styles.card}>
         <View style={styles.iconWrap}>
-          <Ionicons name="checkmark" size={34} color={Colors.white} />
+          <Ionicons name="checkmark" size={34} color={Colors.onPrimary} />
         </View>
 
         <Text style={styles.title}>Order Placed!</Text>
         <Text style={styles.subtitle}>
-          Your order has been successfully placed. You can view it in your order
-          history anytime.
+          Your order has been successfully placed. You can track it and see
+          every order in the Transaction tab.
         </Text>
 
         <View style={styles.btnRow}>
@@ -28,9 +31,15 @@ export default function SuccessScreen() {
 
           <Pressable
             style={styles.primaryBtn}
-            onPress={() => router.replace("/(tabs)/transaction")}
+            onPress={() =>
+              orderId
+                ? router.replace(`/order/${orderId}`)
+                : router.replace("/(tabs)/transaction")
+            }
           >
-            <Text style={styles.primaryText}>View Orders</Text>
+            <Text style={styles.primaryText}>
+              {orderId ? "Track Order" : "View Orders"}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -38,7 +47,8 @@ export default function SuccessScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -49,7 +59,7 @@ const styles = StyleSheet.create({
 
   card: {
     width: "100%",
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 18,
     padding: 18,
     alignItems: "center",
@@ -90,7 +100,7 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     height: 50,
     borderRadius: 14,
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -111,7 +121,7 @@ const styles = StyleSheet.create({
   },
 
   primaryText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontWeight: "900",
   },
 });

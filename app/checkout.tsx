@@ -1,39 +1,79 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
-import Colors from "../src/constants/colors";
+import { useThemedStyles } from "@/src/context/ThemeContext";
+import type { Palette } from "@/src/constants/colors";
+import { applyPromo } from "@/src/data/promos";
+import { successFeedback, warningFeedback } from "@/src/utils/haptics";
+import { useAddress } from "../src/context/AddressContext";
 import { useCart } from "../src/context/CartContext";
-import { useOrders } from "../src/context/OrdersContext";
+import { useOrders, type PaymentMethod } from "../src/context/OrdersContext";
 import { formatPrice } from "@/src/utils/format";
 
-type PaymentMethod = "card" | "cash";
+const SHIPPING_FEE = 4.99;
 
 export default function CheckoutScreen() {
+  const { Colors, styles } = useThemedStyles(createStyles);
   const { items, totalPrice, clearCart } = useCart();
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
-
-  // You can tweak these later
-  const shippingFee = useMemo(() => (totalPrice > 0 ? 4.99 : 0), [totalPrice]);
-  const discount = useMemo(() => (totalPrice > 300 ? 10 : 0), [totalPrice]); // example rule
-  const grandTotal = useMemo(
-    () => Math.max(0, totalPrice + shippingFee - discount),
-    [totalPrice, shippingFee, discount],
-  );
+  const { summary: deliveryAddress } = useAddress();
   const { addOrder } = useOrders();
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  // Re-check the code against the current subtotal (the cart can change)
+  const promo = appliedCode ? applyPromo(appliedCode, totalPrice) : null;
+  const activePromo = promo?.ok ? promo : null;
+
+  const shippingFee = totalPrice > 0 && !activePromo?.freeShipping ? SHIPPING_FEE : 0;
+  const discount = Math.min(activePromo?.discount ?? 0, totalPrice);
+  // Round to the penny so stored totals don't carry floating-point noise
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const grandTotal = round(Math.max(0, totalPrice + shippingFee - discount));
+
+  function handleApplyCode() {
+    const result = applyPromo(codeInput, totalPrice);
+    if (result.ok) {
+      successFeedback();
+      setAppliedCode(result.code);
+      setPromoError(null);
+      setCodeInput("");
+    } else {
+      warningFeedback();
+      setPromoError(result.error);
+    }
+  }
+
+  function handlePlaceOrder() {
+    const orderId = addOrder({
+      items,
+      subtotal: round(totalPrice),
+      shipping: shippingFee,
+      discount,
+      total: grandTotal,
+      paymentMethod,
+      promoCode: activePromo?.code,
+    });
+    successFeedback();
+    clearCart();
+    router.replace({ pathname: "/success", params: { orderId } });
+  }
 
   return (
     <View style={styles.container}>
       {/* Top Bar */}
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+        <Pressable onPress={() => router.back()} style={styles.iconBtn} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
 
@@ -46,6 +86,7 @@ export default function CheckoutScreen() {
         data={items}
         keyExtractor={(item) => item.lineId}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <>
@@ -53,24 +94,19 @@ export default function CheckoutScreen() {
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.sectionTitle}>Delivery Address</Text>
-                <Pressable style={styles.editPill}>
-                  <Ionicons
-                    name="create-outline"
-                    size={14}
-                    color={Colors.gray}
-                  />
+                <Pressable
+                  style={styles.editPill}
+                  onPress={() => router.push("/address")}
+                >
+                  <Ionicons name="create-outline" size={14} color={Colors.gray} />
                   <Text style={styles.editText}>Edit</Text>
                 </Pressable>
               </View>
 
               <View style={styles.addressRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={18}
-                  color={Colors.text}
-                />
+                <Ionicons name="location-outline" size={18} color={Colors.text} />
                 <Text style={styles.address} numberOfLines={1}>
-                  3517 W. Gray St. Utica
+                  {deliveryAddress || "Add a delivery address"}
                 </Text>
               </View>
             </View>
@@ -80,40 +116,70 @@ export default function CheckoutScreen() {
               <Text style={styles.sectionTitle}>Payment Method</Text>
 
               <View style={styles.paymentRow}>
-                <Pressable
-                  onPress={() => setPaymentMethod("card")}
-                  style={[
-                    styles.paymentOption,
-                    paymentMethod === "card" && styles.paymentActive,
-                  ]}
-                >
-                  <View style={styles.paymentIcon}>
-                    <Ionicons
-                      name="card-outline"
-                      size={18}
-                      color={Colors.text}
-                    />
-                  </View>
-                  <Text style={styles.paymentText}>Card</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => setPaymentMethod("cash")}
-                  style={[
-                    styles.paymentOption,
-                    paymentMethod === "cash" && styles.paymentActive,
-                  ]}
-                >
-                  <View style={styles.paymentIcon}>
-                    <Ionicons
-                      name="cash-outline"
-                      size={18}
-                      color={Colors.text}
-                    />
-                  </View>
-                  <Text style={styles.paymentText}>Cash</Text>
-                </Pressable>
+                {(
+                  [
+                    { key: "card", label: "Card", icon: "card-outline" },
+                    { key: "cash", label: "Cash on delivery", icon: "cash-outline" },
+                  ] as const
+                ).map((option) => (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => setPaymentMethod(option.key)}
+                    style={[
+                      styles.paymentOption,
+                      paymentMethod === option.key && styles.paymentActive,
+                    ]}
+                  >
+                    <View style={styles.paymentIcon}>
+                      <Ionicons name={option.icon} size={18} color={Colors.text} />
+                    </View>
+                    <Text style={styles.paymentText}>{option.label}</Text>
+                  </Pressable>
+                ))}
               </View>
+            </View>
+
+            {/* Promo code */}
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Promo Code</Text>
+
+              {activePromo ? (
+                <View style={styles.promoApplied}>
+                  <Ionicons name="pricetag" size={16} color={Colors.success} />
+                  <Text style={styles.promoAppliedText}>
+                    {activePromo.code} · {activePromo.label}
+                  </Text>
+                  <Pressable onPress={() => setAppliedCode(null)} hitSlop={8} accessibilityLabel="Remove promo code">
+                    <Ionicons name="close-circle" size={18} color={Colors.gray} />
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.promoRow}>
+                  <TextInput
+                    value={codeInput}
+                    onChangeText={(t) => {
+                      setCodeInput(t);
+                      setPromoError(null);
+                    }}
+                    placeholder="Enter code, e.g. LUXE10"
+                    placeholderTextColor={Colors.gray}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    style={styles.promoInput}
+                    onSubmitEditing={handleApplyCode}
+                  />
+                  <Pressable
+                    style={[styles.promoBtn, !codeInput.trim() && { opacity: 0.4 }]}
+                    disabled={!codeInput.trim()}
+                    onPress={handleApplyCode}
+                  >
+                    <Text style={styles.promoBtnText}>Apply</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {promoError && <Text style={styles.promoError}>{promoError}</Text>}
+              {promo && !promo.ok && <Text style={styles.promoError}>{promo.error}</Text>}
             </View>
 
             <Text style={styles.itemsTitle}>Items</Text>
@@ -122,14 +188,16 @@ export default function CheckoutScreen() {
         renderItem={({ item }) => (
           <View style={styles.itemCard}>
             <View style={styles.imageBox}>
-              <Image source={item.image} style={styles.itemImage} />
+              <Image source={item.image} style={styles.itemImage} contentFit="contain" />
             </View>
 
             <View style={styles.itemInfo}>
               <Text style={styles.itemName} numberOfLines={1}>
                 {item.name}
               </Text>
-              <Text style={styles.qtyLine}>Qty: {item.qty}</Text>
+              <Text style={styles.qtyLine}>
+                {[item.storage, item.color, `Qty: ${item.qty}`].filter(Boolean).join(" · ")}
+              </Text>
             </View>
 
             <Text style={styles.itemPrice}>
@@ -138,40 +206,37 @@ export default function CheckoutScreen() {
           </View>
         )}
         ListFooterComponent={
-          <>
-            {/* Order Summary */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Order Summary</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Order Summary</Text>
 
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>
-                  {formatPrice(totalPrice)}
-                </Text>
-              </View>
-
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Shipping</Text>
-                <Text style={styles.summaryValue}>
-                  {formatPrice(shippingFee)}
-                </Text>
-              </View>
-
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Discount</Text>
-                <Text style={styles.summaryValue}>-{formatPrice(discount)}</Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryTotalLabel}>Total</Text>
-                <Text style={styles.summaryTotalValue}>
-                  {formatPrice(grandTotal)}
-                </Text>
-              </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>{formatPrice(totalPrice)}</Text>
             </View>
-          </>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Shipping</Text>
+              <Text style={styles.summaryValue}>
+                {shippingFee === 0 && totalPrice > 0 ? "Free" : formatPrice(shippingFee)}
+              </Text>
+            </View>
+
+            {discount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Discount ({activePromo?.code})</Text>
+                <Text style={[styles.summaryValue, { color: Colors.success }]}>
+                  -{formatPrice(discount)}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryTotalLabel}>Total</Text>
+              <Text style={styles.summaryTotalValue}>{formatPrice(grandTotal)}</Text>
+            </View>
+          </View>
         }
       />
 
@@ -183,29 +248,19 @@ export default function CheckoutScreen() {
         </View>
 
         <Pressable
-          style={styles.placeBtn}
-          onPress={() => {
-            addOrder({
-              items,  
-              subtotal: totalPrice,
-              shipping: shippingFee,
-              discount,
-              total: grandTotal,
-            });
-
-            clearCart(); 
-            router.replace("/success");
-
-          }}
+          style={[styles.placeBtn, items.length === 0 && { opacity: 0.4 }]}
+          disabled={items.length === 0}
+          onPress={handlePlaceOrder}
         >
           <Text style={styles.placeText}>Place Order</Text>
         </Pressable>
-      </View>  
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -224,7 +279,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -241,7 +296,7 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 14,
     marginBottom: 14,
@@ -308,14 +363,14 @@ const styles = StyleSheet.create({
   paymentActive: {
     borderWidth: 2,
     borderColor: Colors.primary,
-    backgroundColor: "#FFE7DF",
+    backgroundColor: Colors.primarySoft,
   },
 
   paymentIcon: {
     width: 34,
     height: 34,
     borderRadius: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -334,7 +389,7 @@ const styles = StyleSheet.create({
   },
 
   itemCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 12,
     flexDirection: "row",
@@ -355,7 +410,60 @@ const styles = StyleSheet.create({
   itemImage: {
     width: 44,
     height: 44,
-    resizeMode: "contain",
+  },
+
+  promoRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  promoInput: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.background,
+    color: Colors.text,
+    fontWeight: "700",
+  },
+
+  promoBtn: {
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  promoBtnText: {
+    color: Colors.onPrimary,
+    fontWeight: "900",
+  },
+
+  promoApplied: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.background,
+  },
+
+  promoAppliedText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+
+  promoError: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.danger,
   },
 
   itemInfo: {
@@ -425,7 +533,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -458,7 +566,7 @@ const styles = StyleSheet.create({
   },
 
   placeText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontWeight: "900",
   },
 });

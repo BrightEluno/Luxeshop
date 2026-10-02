@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import React from "react";
 import {
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,16 +10,28 @@ import {
 } from "react-native";
 
 import { router } from "expo-router";
-import Colors from "../../src/constants/colors";
+import { Price } from "@/components/price";
+import { ProductCard } from "@/components/product-card";
+import { useCountdownToMidnight } from "@/hooks/use-now";
+import { useRecentlyViewed } from "@/src/context/RecentlyViewedContext";
+import { specialLists } from "@/src/data/products";
+import { useThemedStyles } from "@/src/context/ThemeContext";
+import type { Palette } from "@/src/constants/colors";
+import { useAddress } from "../../src/context/AddressContext";
 import { useCart } from "../../src/context/CartContext";
-import { useWishlist } from "../../src/context/WishlistContext";
 import categories from "../../src/data/categories";
-import { flashSale, flashSaleProducts, promoBanner } from "../../src/data/home";
-import { formatPrice } from "@/src/utils/format";
+import { flashSaleProducts } from "../../src/data/home";
+
+// Banner text comes from what's actually on sale
+const deals = specialLists.deals.products();
+const maxDiscount = Math.max(0, ...deals.map((p) => p.discountPercent));
 
 export default function HomeScreen() {
+  const { Colors, styles } = useThemedStyles(createStyles);
   const { totalItems } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
+  const { summary: deliveryAddress } = useAddress();
+  const { items: recentlyViewed } = useRecentlyViewed();
+  const countdown = useCountdownToMidnight();
 
   return (
     <FlatList
@@ -37,7 +49,7 @@ export default function HomeScreen() {
               <Image
                 source={require("../../src/assets/images/logo.png")}
                 style={styles.logoImage}
-                resizeMode="contain"
+                contentFit="contain"
               />
               <Text style={styles.logoText}>Luxeshop</Text>
             </View>
@@ -58,7 +70,10 @@ export default function HomeScreen() {
                 )}
               </Pressable>
 
-              <Pressable>
+              <Pressable
+                onPress={() => router.push("/notifications")}
+                accessibilityLabel="Notifications"
+              >
                 <Ionicons
                   name="notifications-outline"
                   size={24}
@@ -82,44 +97,83 @@ export default function HomeScreen() {
           </Pressable>
 
           {/* Delivery */}
-          <View style={styles.deliveryRow}>
+          <Pressable
+            style={styles.deliveryRow}
+            onPress={() => router.push("/address")}
+          >
             <Ionicons name="location-outline" size={18} color={Colors.text} />
             <Text style={styles.deliveryLabel}>Delivery to</Text>
             <Text style={styles.deliveryValue} numberOfLines={1}>
-              3517 W. Gray St. Utica
+              {deliveryAddress || "Add your address"}
             </Text>
-            <Ionicons name="chevron-down" size={18} color={Colors.text} />
-          </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.text} />
+          </Pressable>
 
           {/* Categories */}
           <View style={styles.categoriesWrap}>
             {categories.map((item) => (
-              <View key={item.id} style={styles.categoryItem}>
-                <View style={styles.categoryIcon}>
-                  <Image source={item.image} style={styles.categoryImage} />
+              <Pressable
+                key={item.id}
+                style={styles.categoryItem}
+                onPress={() => router.push(`/category/${item.slug}`)}
+                accessibilityLabel={`${item.name} category`}
+              >
+                <View style={[styles.categoryIcon, { backgroundColor: item.tint }]}>
+                  <Image source={item.image} style={styles.categoryImage} contentFit="contain" />
                 </View>
                 <Text style={styles.categoryText} numberOfLines={1}>
                   {item.name}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
 
           {/* Promo Banner */}
-          <View style={styles.banner}>
+          <Pressable
+            style={styles.banner}
+            onPress={() => router.push("/category/deals")}
+          >
             <View style={{ flex: 1 }}>
-              <Text style={styles.bannerTitle}>{promoBanner.title}</Text>
-              <Text style={styles.bannerSubtitle}>{promoBanner.subtitle}</Text>
+              <Text style={styles.bannerTitle}>Up to {maxDiscount}% off</Text>
+              <Text style={styles.bannerSubtitle}>
+                {deals.length} products on sale across every category
+              </Text>
 
               <View style={styles.bannerBtn}>
-                <Text style={styles.bannerBtnText}>
-                  {promoBanner.buttonText}
-                </Text>
+                <Text style={styles.bannerBtnText}>Shop Now</Text>
               </View>
             </View>
 
             <View style={styles.bannerCircle} />
-          </View>
+          </Pressable>
+
+          {/* Recently viewed */}
+          {recentlyViewed.length > 0 && (
+            <>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Recently Viewed</Text>
+              </View>
+              <FlatList
+                data={recentlyViewed}
+                keyExtractor={(p) => p.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.recentList}
+                renderItem={({ item: p }) => (
+                  <Pressable
+                    style={styles.recentCard}
+                    onPress={() => router.push(`/product/${p.id}`)}
+                  >
+                    <Image source={p.image} style={styles.recentImage} contentFit="contain" />
+                    <Text style={styles.recentName} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                    <Price price={p.price} />
+                  </Pressable>
+                )}
+              />
+            </>
+          )}
 
           {/* Flash Sale Header */}
           <View style={styles.sectionRow}>
@@ -132,67 +186,28 @@ export default function HomeScreen() {
                   size={14}
                   color={Colors.primary}
                 />
-                <Text style={styles.timerText}>{flashSale.endsIn}</Text>
+                <Text style={styles.timerText}>{countdown}</Text>
               </View>
 
-              <Text style={styles.seeAll}>See All</Text>
+              <Pressable
+                onPress={() => router.push("/category/flash-sale")}
+                hitSlop={8}
+              >
+                <Text style={styles.seeAll}>See All</Text>
+              </Pressable>
             </View>
           </View>
         </>
       }
-      renderItem={({ item }) => (
-        <Pressable
-          style={styles.productCard}
-          onPress={() => router.push(`/product/${item.id}`)}
-        >
-          {(item.isNew || item.discountPercent > 0) && (
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>
-                {item.isNew ? "NEW" : `-${item.discountPercent}%`}
-              </Text>
-            </View>
-          )}
-
-          <Pressable
-            onPress={() => toggleWishlist(item.id)}
-            style={styles.heartBtn}
-            hitSlop={8}
-            accessibilityLabel={
-              isInWishlist(item.id) ? "Remove from wishlist" : "Add to wishlist"
-            }
-          >
-            <Ionicons
-              name={isInWishlist(item.id) ? "heart" : "heart-outline"}
-              size={16}
-              color={isInWishlist(item.id) ? Colors.primary : Colors.gray}
-            />
-          </Pressable>
-
-          <Image source={item.image} style={styles.productImage} />
-
-          <Text style={styles.productName} numberOfLines={1}>
-            {item.name}
-          </Text>
-
-          <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
-
-          <View style={styles.productMeta}>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color="#F59E0B" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
-            </View>
-
-            <Text style={styles.soldText}>{item.sold} sold</Text>
-          </View>
-        </Pressable>
-      )}
+      renderItem={({ item }) => <ProductCard product={item} />}
     />
   );
 }
 
 /* STYLES */
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 60,
@@ -233,24 +248,18 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     padding: 14,
     borderRadius: 12,
     marginTop: 20,
   },
 
-  input: {
-    marginLeft: 10,
-    fontSize: 16,
-    flex: 1,
-    color: Colors.text,
-  },
 
   /* Delivery */
   deliveryRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -285,30 +294,29 @@ const styles = StyleSheet.create({
   },
 
   categoryIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: Colors.white,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
 
   categoryImage: {
-    width: 28,
-    height: 28,
-    resizeMode: "contain",
+    width: 40,
+    height: 40,
   },
 
   categoryText: {
     marginTop: 8,
     fontSize: 12,
+    fontWeight: "600",
     color: Colors.text,
   },
 
   /* Banner */
   banner: {
     marginTop: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
     flexDirection: "row",
@@ -338,7 +346,7 @@ const styles = StyleSheet.create({
   },
 
   bannerBtnText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontWeight: "700",
   },
 
@@ -352,9 +360,36 @@ const styles = StyleSheet.create({
     top: -20,
   },
 
+  /* Recently viewed */
+  recentList: {
+    gap: 10,
+  },
+
+  recentCard: {
+    width: 120,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 10,
+  },
+
+  recentImage: {
+    width: "100%",
+    height: 70,
+  },
+
+  recentName: {
+    marginTop: 6,
+    marginBottom: 2,
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+
   /* Flash Sale Header */
   sectionRow: {
     marginTop: 18,
+    // Keeps the timer pill clear of the product cards below
+    marginBottom: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -378,7 +413,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     gap: 6,
   },
 
@@ -399,89 +434,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  productCard: {
-    width: "48%",
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
-    overflow: "hidden",
-  },
 
-  discountBadge: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    zIndex: 1,
-  },
 
-  discountText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: "800",
-  },
 
-  heartBtn: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-  },
 
-  productImage: {
-    width: "100%",
-    height: 100,
-    resizeMode: "contain",
-    marginTop: 12,
-  },
 
-  productName: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.text,
-  },
 
-  productPrice: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: "900",
-    color: Colors.text,
-  },
 
-  productMeta: {
-    marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
 
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
 
-  ratingText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.text,
-  },
 
-  soldText: {
-    fontSize: 12,
-    color: Colors.gray,
-  },
   cartIconWrap: {
     position: "relative",
   },
@@ -499,7 +461,7 @@ const styles = StyleSheet.create({
   },
 
   badgeDotText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontSize: 11,
     fontWeight: "900",
   },

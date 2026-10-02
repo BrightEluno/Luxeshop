@@ -1,13 +1,3 @@
-export const promoBanner = {
-  title: "6.6 Flash Sale",
-  subtitle: "Get up to 50% off your favourite items",
-  buttonText: "Shop Now",
-};
-
-export const flashSale = {
-  endsIn: "02 : 12 : 56",
-};
-
 export type StorageOption = {
   label: string;
   price: number;
@@ -20,11 +10,24 @@ export type ColorOption = {
   image: any;
 };
 
+export type ProductReview = {
+  user: string;
+  rating: number;
+  comment: string;
+};
+
 export type Product = {
   id: string;
   name: string;
-  /** Starting price (cheapest storage option) in GBP */
+  brand?: string;
+  /** Category slug, see src/data/categories.ts */
+  category: string;
+  /** Starting price (cheapest storage option) in GBP, after any discount */
   price: number;
+  /** Price before the discount; shown crossed out when set */
+  originalPrice?: number;
+  /** Units available; 0 means sold out */
+  stock: number;
   rating: number;
   sold: number;
   discountPercent: number;
@@ -36,6 +39,9 @@ export type Product = {
   storage?: StorageOption[];
   /** Omit for products that come in a single finish */
   colors?: ColorOption[];
+  /** Extra gallery photos for products without colour options */
+  images?: any[];
+  reviews?: ProductReview[];
 };
 
 const iphone18ProColors: ColorOption[] = [
@@ -86,10 +92,12 @@ export const flashSaleProducts: Product[] = [
   {
     id: "8",
     name: "iPhone 18 Pro",
+    category: "electronic",
     price: 1199.0,
     rating: 4.9,
     sold: 640,
     discountPercent: 0,
+    stock: 42,
     isNew: true,
     image: iphone18ProColors[0].image,
     description:
@@ -105,10 +113,12 @@ export const flashSaleProducts: Product[] = [
   {
     id: "9",
     name: "iPhone 18 Pro Max",
+    category: "electronic",
     price: 1299.0,
     rating: 4.9,
     sold: 870,
     discountPercent: 0,
+    stock: 35,
     isNew: true,
     image: iphone18ProMaxColors[0].image,
     description:
@@ -124,10 +134,12 @@ export const flashSaleProducts: Product[] = [
   {
     id: "10",
     name: "iPhone Duo",
+    category: "electronic",
     price: 1999.0,
     rating: 4.8,
     sold: 210,
     discountPercent: 0,
+    stock: 4,
     isNew: true,
     image: iphoneDuoColors[0].image,
     description:
@@ -143,10 +155,12 @@ export const flashSaleProducts: Product[] = [
   {
     id: "11",
     name: "Galaxy S26 Ultra",
+    category: "electronic",
     price: 1359.0,
     rating: 4.8,
     sold: 1540,
     discountPercent: 0,
+    stock: 60,
     isNew: true,
     image: galaxyS26UltraColors[0].image,
     description:
@@ -161,10 +175,12 @@ export const flashSaleProducts: Product[] = [
   {
     id: "12",
     name: "Galaxy Z Fold8 Ultra",
+    category: "electronic",
     price: 1899.0,
     rating: 4.8,
     sold: 430,
     discountPercent: 0,
+    stock: 3,
     isNew: true,
     image: galaxyZFold8UltraColors[0].image,
     description:
@@ -179,10 +195,12 @@ export const flashSaleProducts: Product[] = [
   {
     id: "13",
     name: "Galaxy Z Fold8",
+    category: "electronic",
     price: 1699.0,
     rating: 4.7,
     sold: 520,
     discountPercent: 0,
+    stock: 25,
     isNew: true,
     image: galaxyZFold8Colors[0].image,
     description:
@@ -192,29 +210,38 @@ export const flashSaleProducts: Product[] = [
   },
   {
     id: "1",
-    name: "Apple Watch Series 7",
-    price: 299.99,
+    name: "Apple Watch Ultra 2",
+    category: "electronic",
+    price: 599.0,
+    originalPrice: 799.0,
     rating: 4.8,
     sold: 1200,
     discountPercent: 25,
+    stock: 12,
     image: require("../assets/images/watch-Ultra2.png"),
   },
   {
     id: "3",
-    name: "MacBook Air 13.6 inch M4 chip 2023",
-    price: 59.99,
+    name: "MacBook Air 13-inch (M4, 2025)",
+    category: "electronic",
+    price: 899.0,
+    originalPrice: 999.0,
     rating: 4.7,
     sold: 2100,
-    discountPercent: 33,
+    discountPercent: 10,
+    stock: 9,
     image: require("../assets/images/MacBook-Air.png"),
   },
   {
     id: "4",
-    name: "iPad Pro 6th generation 11 inch 2022",
+    name: "iPad Pro 11-inch (M4)",
+    category: "electronic",
     price: 799.0,
+    originalPrice: 999.0,
     rating: 4.7,
     sold: 2100,
-    discountPercent: 33,
-    image: require("../assets/images/ipad_pro.jpg"),
+    discountPercent: 20,
+    stock: 0,
+    image: require("../assets/images/ipad-pro-m4.png"),
   },
 ];

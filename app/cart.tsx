@@ -1,20 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React from "react";
 import {
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import Colors from "../src/constants/colors";
+import { useThemedStyles } from "@/src/context/ThemeContext";
+import type { Palette } from "@/src/constants/colors";
 import { useCart } from "../src/context/CartContext";
 import { formatPrice } from "@/src/utils/format";
+import { tapFeedback } from "@/src/utils/haptics";
 
 export default function CartScreen() {
-  const { items, increaseQty, decreaseQty, removeItem, totalPrice } = useCart();
+  const { Colors, styles } = useThemedStyles(createStyles);
+  const { items, increaseQty, decreaseQty, removeItem, remainingStock, totalPrice } = useCart();
 
   return (
     <View style={styles.container}>
@@ -33,6 +36,9 @@ export default function CartScreen() {
         <View style={styles.empty}>
           <Ionicons name="cart-outline" size={40} color={Colors.gray} />
           <Text style={styles.emptyText}>Your cart is empty</Text>
+          <Pressable style={styles.shopBtn} onPress={() => router.replace("/")}>
+            <Text style={styles.shopBtnText}>Start Shopping</Text>
+          </Pressable>
         </View>
       ) : (
         <>
@@ -42,10 +48,16 @@ export default function CartScreen() {
             contentContainerStyle={{ paddingBottom: 140 }}
             renderItem={({ item }) => (
               <View style={styles.cartItem}>
-                <Image source={item.image} style={styles.itemImage} />
+                <Pressable onPress={() => router.push(`/product/${item.id}`)}>
+                  <Image source={item.image} style={styles.itemImage} contentFit="contain" />
+                </Pressable>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName} numberOfLines={1}>
+                  <Text
+                    style={styles.itemName}
+                    numberOfLines={1}
+                    onPress={() => router.push(`/product/${item.id}`)}
+                  >
                     {item.name}
                   </Text>
 
@@ -68,7 +80,8 @@ export default function CartScreen() {
                     <Text style={styles.qtyText}>{item.qty}</Text>
 
                     <Pressable
-                      style={styles.qtyBtn}
+                      style={[styles.qtyBtn, remainingStock(item.id) === 0 && { opacity: 0.4 }]}
+                      disabled={remainingStock(item.id) === 0}
                       onPress={() => increaseQty(item.lineId)}
                     >
                       <Ionicons name="add" size={16} color={Colors.text} />
@@ -76,7 +89,13 @@ export default function CartScreen() {
                   </View>
                 </View>
 
-                <Pressable onPress={() => removeItem(item.lineId)}>
+                <Pressable
+                  onPress={() => {
+                    tapFeedback();
+                    removeItem(item.lineId);
+                  }}
+                  accessibilityLabel={`Remove ${item.name}`}
+                >
                   <Ionicons
                     name="trash-outline"
                     size={20}
@@ -107,7 +126,17 @@ export default function CartScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
+  shopBtn: {
+    marginTop: 12,
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+  },
+  shopBtnText: { color: Colors.onPrimary, fontWeight: "800" },
+
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -126,7 +155,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -151,7 +180,7 @@ const styles = StyleSheet.create({
 
   cartItem: {
     marginHorizontal: 16,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 12,
     marginTop: 12,
@@ -163,7 +192,6 @@ const styles = StyleSheet.create({
   itemImage: {
     width: 64,
     height: 64,
-    resizeMode: "contain",
     backgroundColor: Colors.background,
     borderRadius: 12,
   },
@@ -214,7 +242,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -247,7 +275,7 @@ const styles = StyleSheet.create({
   },
 
   checkoutText: {
-    color: Colors.white,
+    color: Colors.onPrimary,
     fontWeight: "900",
   },
 });
