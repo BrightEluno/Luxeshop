@@ -1,38 +1,72 @@
-import React, { createContext, useContext, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-type WishlistItem = {
-  id: string;
-  name: string;
-  price: number;
-  image: any;
-};
+import { flashSaleProducts, Product } from "../data/home";
+
+const STORAGE_KEY = "luxeshop:wishlist";
 
 type WishlistContextType = {
-  items: WishlistItem[];
-  toggleWishlist: (item: WishlistItem) => void;
+  items: Product[];
+  count: number;
+  toggleWishlist: (id: string) => void;
+  removeFromWishlist: (id: string) => void;
   isInWishlist: (id: string) => boolean;
 };
 
 const WishlistContext = createContext<WishlistContextType | null>(null);
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<WishlistItem[]>([]);
+  // Only ids are stored; product details always come from the catalogue
+  // so prices and images stay current.
+  const [ids, setIds] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-  function toggleWishlist(item: WishlistItem) {
-    setItems((prev) => {
-      const exists = prev.find((p) => p.id === item.id);
-      if (exists) return prev.filter((p) => p.id !== item.id);
-      return [...prev, item];
-    });
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((raw) => {
+        if (raw) setIds(JSON.parse(raw));
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    // Don't overwrite saved data with the empty initial state.
+    if (!loaded) return;
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ids)).catch(() => {});
+  }, [ids, loaded]);
+
+  const items = useMemo(
+    () =>
+      ids
+        .map((id) => flashSaleProducts.find((p) => p.id === id))
+        .filter((p): p is Product => !!p),
+    [ids],
+  );
+
+  function toggleWishlist(id: string) {
+    setIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  }
+
+  function removeFromWishlist(id: string) {
+    setIds((prev) => prev.filter((p) => p !== id));
   }
 
   function isInWishlist(id: string) {
-    return items.some((p) => p.id === id);
+    return ids.includes(id);
   }
 
   return (
     <WishlistContext.Provider
-      value={{ items, toggleWishlist, isInWishlist }}
+      value={{
+        items,
+        count: items.length,
+        toggleWishlist,
+        removeFromWishlist,
+        isInWishlist,
+      }}
     >
       {children}
     </WishlistContext.Provider>

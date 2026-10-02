@@ -12,6 +12,7 @@ import {
 import Colors from "../src/constants/colors";
 import { useCart } from "../src/context/CartContext";
 import { useOrders } from "../src/context/OrdersContext";
+import { formatPrice } from "@/src/utils/format";
 
 type PaymentMethod = "card" | "cash";
 
@@ -43,7 +44,7 @@ export default function CheckoutScreen() {
 
       <FlatList
         data={items}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.lineId}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
@@ -132,7 +133,7 @@ export default function CheckoutScreen() {
             </View>
 
             <Text style={styles.itemPrice}>
-              £{(item.price * item.qty).toFixed(2)}
+              {formatPrice(item.price * item.qty)}
             </Text>
           </View>
         )}
@@ -145,20 +146,20 @@ export default function CheckoutScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Subtotal</Text>
                 <Text style={styles.summaryValue}>
-                  £{totalPrice.toFixed(2)}
+                  {formatPrice(totalPrice)}
                 </Text>
               </View>
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Shipping</Text>
                 <Text style={styles.summaryValue}>
-                  £{shippingFee.toFixed(2)}
+                  {formatPrice(shippingFee)}
                 </Text>
               </View>
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Discount</Text>
-                <Text style={styles.summaryValue}>-£{discount.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>-{formatPrice(discount)}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -166,7 +167,7 @@ export default function CheckoutScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryTotalLabel}>Total</Text>
                 <Text style={styles.summaryTotalValue}>
-                  £{grandTotal.toFixed(2)}
+                  {formatPrice(grandTotal)}
                 </Text>
               </View>
             </View>
@@ -178,7 +179,7 @@ export default function CheckoutScreen() {
       <View style={styles.bottomBar}>
         <View>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalPrice}>£{grandTotal.toFixed(2)}</Text>
+          <Text style={styles.totalPrice}>{formatPrice(grandTotal)}</Text>
         </View>
 
         <Pressable

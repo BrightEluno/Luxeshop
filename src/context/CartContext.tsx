@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 
 export type CartItem = {
+  /** Unique per product + colour + storage combination */
+  lineId: string;
   id: string;
   name: string;
   price: number;
@@ -12,10 +14,10 @@ export type CartItem = {
 
 type CartContextType = {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "qty">, qty?: number) => void;
-  removeItem: (id: string) => void;
-  increaseQty: (id: string) => void;
-  decreaseQty: (id: string) => void;
+  addItem: (item: Omit<CartItem, "qty" | "lineId">, qty?: number) => void;
+  removeItem: (lineId: string) => void;
+  increaseQty: (lineId: string) => void;
+  decreaseQty: (lineId: string) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -26,14 +28,10 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = (
-  item: Omit<CartItem, "qty"> & { color?: string; storage?: string },
-  qty = 1
-) => {
+  const addItem = (item: Omit<CartItem, "qty" | "lineId">, qty = 1) => {
+  const lineId = [item.id, item.color ?? "", item.storage ?? ""].join("|");
   setItems((prev) => {
-    const existingIndex = prev.findIndex(
-      (p) => p.id === item.id && p.color === item.color && p.storage === item.storage
-    );
+    const existingIndex = prev.findIndex((p) => p.lineId === lineId);
 
     if (existingIndex >= 0) {
       const copy = [...prev];
@@ -44,25 +42,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return copy;
     }
 
-    return [...prev, { ...item, qty }];
+    return [...prev, { ...item, lineId, qty }];
   });
 };
 
 
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((p) => p.id !== id));
+  const removeItem = (lineId: string) => {
+    setItems((prev) => prev.filter((p) => p.lineId !== lineId));
   };
 
-  const increaseQty = (id: string) => {
+  const increaseQty = (lineId: string) => {
     setItems((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, qty: p.qty + 1 } : p))
+      prev.map((p) => (p.lineId === lineId ? { ...p, qty: p.qty + 1 } : p))
     );
   };
 
-  const decreaseQty = (id: string) => {
+  const decreaseQty = (lineId: string) => {
     setItems((prev) =>
       prev.map((p) =>
-        p.id === id ? { ...p, qty: Math.max(1, p.qty - 1) } : p
+        p.lineId === lineId ? { ...p, qty: Math.max(1, p.qty - 1) } : p
       )
     );
   };

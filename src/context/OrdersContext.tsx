@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 
 export type OrderItem = {
+  lineId?: string;
   id: string;
   name: string;
   price: number;
   image: any; // RN require(...) images
   qty: number;
+  color?: string;
+  storage?: string;
 };
 
 export type Order = {

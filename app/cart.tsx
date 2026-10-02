@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import Colors from "../src/constants/colors";
 import { useCart } from "../src/context/CartContext";
+import { formatPrice } from "@/src/utils/format";
 
 export default function CartScreen() {
   const { items, increaseQty, decreaseQty, removeItem, totalPrice } = useCart();
@@ -37,7 +38,7 @@ export default function CartScreen() {
         <>
           <FlatList
             data={items}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.lineId}
             contentContainerStyle={{ paddingBottom: 140 }}
             renderItem={({ item }) => (
               <View style={styles.cartItem}>
@@ -48,12 +49,18 @@ export default function CartScreen() {
                     {item.name}
                   </Text>
 
-                  <Text style={styles.itemPrice}>£{item.price.toFixed(2)}</Text>
+                  {(item.storage || item.color) && (
+                    <Text style={styles.itemVariant} numberOfLines={1}>
+                      {[item.storage, item.color].filter(Boolean).join(" · ")}
+                    </Text>
+                  )}
+
+                  <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
 
                   <View style={styles.qtyRow}>
                     <Pressable
                       style={styles.qtyBtn}
-                      onPress={() => decreaseQty(item.id)}
+                      onPress={() => decreaseQty(item.lineId)}
                     >
                       <Ionicons name="remove" size={16} color={Colors.text} />
                     </Pressable>
@@ -62,14 +69,14 @@ export default function CartScreen() {
 
                     <Pressable
                       style={styles.qtyBtn}
-                      onPress={() => increaseQty(item.id)}
+                      onPress={() => increaseQty(item.lineId)}
                     >
                       <Ionicons name="add" size={16} color={Colors.text} />
                     </Pressable>
                   </View>
                 </View>
 
-                <Pressable onPress={() => removeItem(item.id)}>
+                <Pressable onPress={() => removeItem(item.lineId)}>
                   <Ionicons
                     name="trash-outline"
                     size={20}
@@ -84,7 +91,7 @@ export default function CartScreen() {
           <View style={styles.bottomBar}>
             <View>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalPrice}>£{totalPrice.toFixed(2)}</Text>
+              <Text style={styles.totalPrice}>{formatPrice(totalPrice)}</Text>
             </View>
 
             <Pressable
@@ -167,6 +174,12 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
 
+  itemVariant: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.gray,
+  },
   itemPrice: {
     marginTop: 4,
     fontSize: 14,

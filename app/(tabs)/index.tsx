@@ -12,11 +12,14 @@ import {
 import { router } from "expo-router";
 import Colors from "../../src/constants/colors";
 import { useCart } from "../../src/context/CartContext";
+import { useWishlist } from "../../src/context/WishlistContext";
 import categories from "../../src/data/categories";
 import { flashSale, flashSaleProducts, promoBanner } from "../../src/data/home";
+import { formatPrice } from "@/src/utils/format";
 
 export default function HomeScreen() {
   const { totalItems } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   return (
     <FlatList
@@ -142,9 +145,28 @@ export default function HomeScreen() {
           style={styles.productCard}
           onPress={() => router.push(`/product/${item.id}`)}
         >
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>-{item.discountPercent}%</Text>
-          </View>
+          {(item.isNew || item.discountPercent > 0) && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>
+                {item.isNew ? "NEW" : `-${item.discountPercent}%`}
+              </Text>
+            </View>
+          )}
+
+          <Pressable
+            onPress={() => toggleWishlist(item.id)}
+            style={styles.heartBtn}
+            hitSlop={8}
+            accessibilityLabel={
+              isInWishlist(item.id) ? "Remove from wishlist" : "Add to wishlist"
+            }
+          >
+            <Ionicons
+              name={isInWishlist(item.id) ? "heart" : "heart-outline"}
+              size={16}
+              color={isInWishlist(item.id) ? Colors.primary : Colors.gray}
+            />
+          </Pressable>
 
           <Image source={item.image} style={styles.productImage} />
 
@@ -152,7 +174,7 @@ export default function HomeScreen() {
             {item.name}
           </Text>
 
-          <Text style={styles.productPrice}>£{item.price.toFixed(2)}</Text>
+          <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
 
           <View style={styles.productMeta}>
             <View style={styles.ratingRow}>
@@ -401,6 +423,19 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 12,
     fontWeight: "800",
+  },
+
+  heartBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
   },
 
   productImage: {

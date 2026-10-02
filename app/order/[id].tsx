@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import Colors from "../../src/constants/colors";
 import { useOrders } from "../../src/context/OrdersContext";
+import { formatPrice } from "@/src/utils/format";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -59,7 +60,7 @@ export default function OrderDetailScreen() {
 
       <FlatList
         data={order.items}
-        keyExtractor={(item) => `${order.id}-${item.id}`}
+        keyExtractor={(item) => `${order.id}-${item.lineId ?? item.id}`}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 140 }}
         renderItem={({ item }) => (
@@ -75,7 +76,7 @@ export default function OrderDetailScreen() {
               <Text style={styles.qtyLine}>Qty: {item.qty}</Text>
             </View>
 
-            <Text style={styles.itemPrice}>£{(item.price * item.qty).toFixed(2)}</Text>
+            <Text style={styles.itemPrice}>{formatPrice(item.price * item.qty)}</Text>
           </View>
         )}
         ListFooterComponent={
@@ -84,24 +85,24 @@ export default function OrderDetailScreen() {
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>£{order.subtotal.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>{formatPrice(order.subtotal)}</Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Shipping</Text>
-              <Text style={styles.summaryValue}>£{order.shipping.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>{formatPrice(order.shipping)}</Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Discount</Text>
-              <Text style={styles.summaryValue}>-£{order.discount.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>-{formatPrice(order.discount)}</Text>
             </View>
 
             <View style={styles.divider} />
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>£{order.total.toFixed(2)}</Text>
+              <Text style={styles.summaryTotalValue}>{formatPrice(order.total)}</Text>
             </View>
           </View>
         }

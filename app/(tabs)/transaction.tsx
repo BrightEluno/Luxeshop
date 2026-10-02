@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import Colors from "../../src/constants/colors";
 import { useOrders } from "../../src/context/OrdersContext";
+import { formatPrice } from "@/src/utils/format";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -81,7 +82,7 @@ export default function TransactionScreen() {
                   {item.items.length} item(s)
                 </Text>
                 <Text style={styles.summaryValue}>
-                  £{item.total.toFixed(2)}
+                  {formatPrice(item.total)}
                 </Text>
               </View>
 

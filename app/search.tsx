@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Colors from "../src/constants/colors";
 import { flashSaleProducts } from "../src/data/home";
+import { formatPrice } from "@/src/utils/format";
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -49,7 +50,7 @@ export default function SearchScreen() {
             <Text style={styles.productName} numberOfLines={1}>
               {item.name}
             </Text>
-            <Text style={styles.productPrice}>£{item.price.toFixed(2)}</Text>
+            <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
           </Pressable>
         )}
         ListEmptyComponent={

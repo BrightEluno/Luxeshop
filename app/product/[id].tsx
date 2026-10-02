@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -17,25 +17,46 @@ import { useCart } from "../../src/context/CartContext";
 import { useWishlist } from "../../src/context/WishlistContext";
 import { flashSaleProducts } from "../../src/data/home";
 import { reviews } from "../../src/data/reviews";
+import { formatPrice } from "@/src/utils/format";
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [selectedColor, setSelectedColor] = useState(0);
+  const [selectedStorage, setSelectedStorage] = useState(0);
   const [qty, setQty] = useState(1);
 
-  // Dots state
-  const [activeSlide, setActiveSlide] = useState(0);
   const carouselRef = useRef<FlatList<any>>(null);
+  // While the carousel is being scrolled programmatically, ignore the slides
+  // it passes so the selected colour doesn't flicker.
+  const scrollTarget = useRef<number | null>(null);
+  // Mirrors selectedColor for the focus handler below
+  const selectedColorRef = useRef(0);
 
   const product = flashSaleProducts.find((p) => String(p.id) === String(id));
 
   const { addItem } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { width } = useWindowDimensions();
-  const sizes = ["64GB", "128GB", "256GB"];
-  const colors = ["#F97316", "#111827", "#2563EB"];
-  const [selectedSize, setSelectedSize] = useState(sizes[0]);
+
+  function scrollToColor(index: number, animated: boolean) {
+    scrollTarget.current = index;
+    carouselRef.current?.scrollToIndex({ index, animated });
+    // Release the lock even if the scroll never reports reaching the target
+    // (e.g. tapping the colour that's already showing).
+    setTimeout(() => {
+      if (scrollTarget.current === index) scrollTarget.current = null;
+    }, 600);
+  }
+
+  // Leaving the screen mid-animation (e.g. tapping a colour then Add to Cart)
+  // can leave the carousel between slides; snap it back to the selected
+  // colour whenever the screen regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      scrollToColor(selectedColorRef.current, false);
+    }, []),
+  );
 
   if (!product) {
     return (
@@ -46,7 +67,46 @@ export default function ProductDetailScreen() {
   }
 
   // define liked AFTER product exists
-  const liked = isInWishlist?.(product.id) ?? false;
+  const liked = isInWishlist(product.id);
+
+  // Only products that define colours / storage show those pickers
+  const colors = product.colors ?? [];
+  const storageOptions = product.storage ?? [];
+  const color = colors[selectedColor];
+  const storage = storageOptions[selectedStorage];
+
+  // One slide per colour, or just the product image
+  const slides = colors.length > 0 ? colors.map((c) => c.image) : [product.image];
+
+  const cartItem = {
+    id: product.id,
+    name: product.name,
+    price: storage?.price ?? product.price,
+    image: color?.image ?? product.image,
+    color: color?.name,
+    storage: storage?.label,
+  };
+
+  function updateColor(index: number) {
+    selectedColorRef.current = index;
+    setSelectedColor(index);
+  }
+
+  function selectColor(index: number) {
+    updateColor(index);
+    scrollToColor(index, true);
+  }
+
+  function handleCarouselScroll(x: number) {
+    const index = Math.round(x / width);
+    if (scrollTarget.current !== null) {
+      if (index === scrollTarget.current) scrollTarget.current = null;
+      return;
+    }
+    if (index !== selectedColor && index >= 0 && index < slides.length) {
+      updateColor(index);
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -59,14 +119,7 @@ export default function ProductDetailScreen() {
         <Text style={styles.pageTitle}>Product</Text>
 
         <Pressable
-          onPress={() =>
-            toggleWishlist({
-              id: product.id,
-              name: product.name,
-              price: product.price,
-              image: product.image,
-            })
-          }
+          onPress={() => toggleWishlist(product.id)}
           style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.6 }]}
           hitSlop={12}
         >
@@ -86,17 +139,21 @@ export default function ProductDetailScreen() {
         {/* Image Carousel */}
         <FlatList
           ref={carouselRef}
-          data={[product.image, product.image, product.image]}
+          data={slides}
           horizontal
           pagingEnabled
           snapToInterval={width}
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
+          scrollEnabled={slides.length > 1}
           keyExtractor={(_, i) => i.toString()}
-          onMomentumScrollEnd={(e) => {
-            const index = Math.round(e.nativeEvent.contentOffset.x / width);
-            setActiveSlide(index);
-          }}
+          getItemLayout={(_, index) => ({
+            length: width,
+            offset: width * index,
+            index,
+          })}
+          scrollEventThrottle={16}
+          onScroll={(e) => handleCarouselScroll(e.nativeEvent.contentOffset.x)}
           renderItem={({ item }) => (
             <View style={[styles.slide, { width }]}>
               <View style={styles.imageCard}>
@@ -107,26 +164,34 @@ export default function ProductDetailScreen() {
         />
 
         {/* Pagination Dots */}
-        <View style={styles.dotsRow}>
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={[styles.dot, activeSlide === i && styles.activeDot]}
-            />
-          ))}
-        </View>
+        {slides.length > 1 && (
+          <View style={styles.dotsRow}>
+            {slides.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.dot, selectedColor === i && styles.activeDot]}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Info */}
         <View style={styles.info}>
           <View style={styles.rowBetween}>
             <Text style={styles.name}>{product.name}</Text>
 
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>-{product.discountPercent}%</Text>
-            </View>
+            {(product.isNew || product.discountPercent > 0) && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {product.isNew ? "NEW" : `-${product.discountPercent}%`}
+                </Text>
+              </View>
+            )}
           </View>
 
-          <Text style={styles.price}>£{product.price.toFixed(2)}</Text>
+          <Text style={styles.price}>
+            {formatPrice(storage?.price ?? product.price)}
+          </Text>
 
           <View style={styles.metaRow}>
             <View style={styles.ratingRow}>
@@ -138,42 +203,60 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Colors */}
-          <Text style={styles.optionTitle}>Color</Text>
-          <View style={styles.colorRow}>
-            {colors.map((color, index) => (
-              <Pressable
-                key={color}
-                onPress={() => setSelectedColor(index)}
-                style={[
-                  styles.colorCircle,
-                  { backgroundColor: color },
-                  selectedColor === index && styles.activeColor,
-                ]}
-              />
-            ))}
-          </View>
+          {color && (
+            <>
+              <Text style={styles.optionTitle}>
+                Color <Text style={styles.optionValue}>· {color.name}</Text>
+              </Text>
+              <View style={styles.colorRow}>
+                {colors.map((c, index) => {
+                  const active = selectedColor === index;
+                  return (
+                    <Pressable
+                      key={c.name}
+                      onPress={() => selectColor(index)}
+                      accessibilityLabel={c.name}
+                      accessibilityState={{ selected: active }}
+                      style={[styles.colorRing, active && styles.colorRingActive]}
+                    >
+                      <View
+                        style={[styles.colorCircle, { backgroundColor: c.hex }]}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
-          {/* Size / Storage */}
-          <Text style={styles.optionTitle}>Storage</Text>
+          {/* Storage */}
+          {storage && (
+            <>
+              <Text style={styles.optionTitle}>Storage</Text>
 
-          <View style={styles.sizeRow}>
-            {sizes.map((s) => {
-              const active = selectedSize === s;
-              return (
-                <Pressable
-                  key={s}
-                  onPress={() => setSelectedSize(s)}
-                  style={[styles.sizePill, active && styles.sizePillActive]}
-                >
-                  <Text
-                    style={[styles.sizeText, active && styles.sizeTextActive]}
-                  >
-                    {s}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+              <View style={styles.sizeRow}>
+                {storageOptions.map((s, index) => {
+                  const active = selectedStorage === index;
+                  return (
+                    <Pressable
+                      key={s.label}
+                      onPress={() => setSelectedStorage(index)}
+                      style={[styles.sizePill, active && styles.sizePillActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.sizeText,
+                          active && styles.sizeTextActive,
+                        ]}
+                      >
+                        {s.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
           {/* Quantity */}
           <Text style={styles.optionTitle}>Quantity</Text>
@@ -197,9 +280,8 @@ export default function ProductDetailScreen() {
 
           {/* Description */}
           <Text style={styles.desc}>
-            Premium quality product with great value. This screen will be
-            improved to match the reference UI (description, reviews,
-            variations, and more).
+            {product.description ??
+              "Premium quality product with great value."}
           </Text>
 
           {/* Reviews */}
@@ -241,11 +323,13 @@ export default function ProductDetailScreen() {
                 style={styles.relatedCard}
                 onPress={() => router.push(`/product/${item.id}`)}
               >
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>
-                    -{item.discountPercent}%
-                  </Text>
-                </View>
+                {(item.isNew || item.discountPercent > 0) && (
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>
+                      {item.isNew ? "NEW" : `-${item.discountPercent}%`}
+                    </Text>
+                  </View>
+                )}
 
                 <Image source={item.image} style={styles.relatedImage} />
 
@@ -254,7 +338,7 @@ export default function ProductDetailScreen() {
                 </Text>
 
                 <Text style={styles.relatedPrice}>
-                  £{item.price.toFixed(2)}
+                  {formatPrice(item.price)}
                 </Text>
 
                 <View style={styles.relatedMeta}>
@@ -276,15 +360,7 @@ export default function ProductDetailScreen() {
         <Pressable
           style={styles.cartBtn}
           onPress={() => {
-            addItem(
-              {
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                image: product.image,
-              },
-              qty,
-            );
+            addItem(cartItem, qty);
             router.push("/cart");
           }}
         >
@@ -295,15 +371,7 @@ export default function ProductDetailScreen() {
         <Pressable
           style={styles.buyBtn}
           onPress={() => {
-            addItem(
-              {
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                image: product.image,
-              },
-              qty,
-            );
+            addItem(cartItem, qty);
             router.push("/checkout");
           }}
         >
@@ -459,21 +527,39 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
 
+  optionValue: {
+    fontWeight: "700",
+    color: Colors.gray,
+  },
+
   colorRow: {
     flexDirection: "row",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 10,
   },
 
-  colorCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  // Outer ring marks the selection without covering the swatch colour
+  colorRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  activeColor: {
-    borderWidth: 2,
+  colorRingActive: {
     borderColor: Colors.primary,
+  },
+
+  colorCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
   },
 
   qtyRow: {

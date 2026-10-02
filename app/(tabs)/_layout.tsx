@@ -1,7 +1,10 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useWishlist } from "@/src/context/WishlistContext";
 
 export default function TabsLayout() {
+  const { count: wishlistCount } = useWishlist();
+
   return (
     <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: "#FF6A3D" }}>
       <Tabs.Screen
@@ -18,6 +21,8 @@ export default function TabsLayout() {
         name="wishlist"
         options={{
           title: "Wishlist",
+          tabBarBadge: wishlistCount > 0 ? wishlistCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: "#FF6A3D" },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" size={size} color={color} />
           ),
