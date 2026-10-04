@@ -161,36 +161,12 @@ Out of the box the app runs in **guest mode**: everything works and is stored on
 
 ### How it fits together
 
-```mermaid
-flowchart LR
-    subgraph Screens["📱 app/ (Expo Router)"]
-        Tabs["(tabs)<br/>Home · Wishlist · Orders · Profile"]
-        Product["product/[id]"]
-        Category["category/[slug]"]
-        Flow["cart → checkout → success → order/[id]"]
-    end
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png" />
+  <img src="docs/architecture-light.png" alt="Architecture: screens use React Context state, which reads the product catalogue and saves to AsyncStorage (guest and offline) or Supabase (Postgres, Auth and Row Level Security) when signed in." width="100%" />
+</picture>
 
-    subgraph State["🧠 src/context"]
-        Cart[Cart]
-        Wishlist[Wishlist]
-        Orders[Orders]
-        Reviews[Reviews]
-        Address[Address]
-        Recent[Recently viewed]
-        Theme[Theme]
-        Auth[Auth]
-    end
-
-    subgraph Data["📦 src/data"]
-        Catalog["87 products<br/>+ categories + promos"]
-    end
-
-    Screens --> State
-    Screens --> Data
-    State --> Data
-    State <--> Disk[("💾 AsyncStorage<br/>guest + offline")]
-    State <-->|signed in| Cloud[("☁️ Supabase<br/>Postgres + Auth + RLS")]
-```
+<sub>Diagram source: <a href="docs/architecture.mmd"><code>docs/architecture.mmd</code></a></sub>
 
 ### Project map
 

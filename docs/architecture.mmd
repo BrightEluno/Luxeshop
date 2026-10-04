@@ -1,0 +1,14 @@
+%% Source for docs/architecture-light.png and docs/architecture-dark.png.
+%% Re-render with: npx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture-light.png -s 2
+flowchart LR
+    UI["📱 <b>Screens</b><br/>app/ · Expo Router<br/><br/>Home · Categories · Product<br/>Cart · Checkout · Orders<br/>Profile · Log in · Sign up"]
+    CTX["🧠 <b>State</b><br/>src/context<br/><br/>Auth · Cart · Wishlist<br/>Orders · Reviews · Address<br/>Theme · Recently viewed"]
+    DATA["📦 <b>Catalogue</b><br/>src/data<br/><br/>87 products<br/>8 categories · promo codes"]
+    LOCAL[("💾 <b>AsyncStorage</b><br/>guest mode + offline")]
+    CLOUD[("☁️ <b>Supabase</b><br/>Postgres · Auth · RLS")]
+
+    UI --> CTX
+    UI --> DATA
+    CTX --> DATA
+    CTX <--> LOCAL
+    CTX <-->|signed in| CLOUD
