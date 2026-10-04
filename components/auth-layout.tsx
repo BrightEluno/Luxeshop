@@ -68,12 +68,21 @@ export function FormField({
 }: { label: string; secure?: boolean } & TextInputProps) {
   const { Colors, styles } = useThemedStyles(createStyles);
   const [hidden, setHidden] = useState(true);
+  const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
         <TextInput
           {...input}
+          onFocus={(e) => {
+            setFocused(true);
+            input.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            input.onBlur?.(e);
+          }}
           secureTextEntry={secure && hidden}
           placeholderTextColor={Colors.gray}
           style={styles.input}
@@ -163,7 +172,11 @@ const createStyles = (Colors: Palette) =>
       backgroundColor: Colors.surface,
       borderRadius: 14,
       paddingHorizontal: 14,
+      borderWidth: 1.5,
+      borderColor: "transparent",
     },
+    // Shows which field is active (replaces the browser's focus outline on web)
+    inputRowFocused: { borderColor: Colors.primary },
     input: { flex: 1, paddingVertical: 14, fontSize: 15, fontWeight: "600", color: Colors.text },
     button: {
       marginTop: 6,

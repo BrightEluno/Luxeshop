@@ -6,7 +6,7 @@
 
 **A next-gen shopping app for iOS, Android and the web, built with React Native and Expo.**
 
-*Liquid Glass tabs · 87 products across 8 worlds · live order tracking · dark mode that actually follows the night*
+*Liquid Glass tabs · 87 products across 8 worlds · accounts that sync everywhere · live order tracking · dark mode that actually follows the night*
 
 <br />
 
@@ -18,6 +18,7 @@
 ![iOS](https://img.shields.io/badge/iOS-26_Liquid_Glass-111?style=for-the-badge&logo=apple&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-Material_3-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Web](https://img.shields.io/badge/Web-ready-FF6A3D?style=for-the-badge&logo=googlechrome&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres_+_Auth-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
 
 [**🚀 Launch it**](#-launch-sequence) · [**✨ Features**](#-feature-tour) · [**🧠 Under the hood**](#-under-the-hood) · [**🚧 Roadmap**](#-roadmap)
 
@@ -29,7 +30,7 @@
 
 Luxeshop is a full shopping experience, not a static UI mock-up. You can browse 8 categories, pick the exact colour and storage of a brand-new iPhone 18 Pro, apply a promo code, and watch your order move from **Placed → Shipped → Out for delivery → Delivered** in real time.
 
-Everything you do is remembered on your device: your cart, wishlist, orders, reviews, address, recently viewed items and theme. Close the app, come back tomorrow, and it's all still there.
+**Create an account and your world follows you.** Your cart, wishlist, orders, delivery address and reviews sync to the cloud with **Supabase**, so you can start shopping on your phone and check out on another device. Prefer to stay anonymous? Browse as a guest and everything is remembered on your device; it moves into your account the moment you sign up.
 
 > 💡 **Recruiters:** jump to [Under the hood](#-under-the-hood) for the architecture, or to [Engineering highlights](#-engineering-highlights) for the problems this project solved.
 
@@ -51,6 +52,10 @@ Everything you do is remembered on your device: your cart, wishlist, orders, rev
 |:---:|:---:|:---:|:---:|
 | <img src="docs/screenshots/search.png" width="190" /> | <img src="docs/screenshots/category.png" width="190" /> | <img src="docs/screenshots/home-flash-sale.png" width="190" /> | <img src="docs/screenshots/wishlist.png" width="190" /> |
 
+| 🔐 Log in | 🔐 Create an account | 🔐 Guest or member |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/login.png" width="190" /> | <img src="docs/screenshots/signup-dark.png" width="190" /> | <img src="docs/screenshots/profile-account.png" width="190" /> |
+
 </div>
 
 ---
@@ -69,6 +74,13 @@ Everything you do is remembered on your device: your cart, wishlist, orders, rev
 - **Search across names, brands and categories,** with suggestions as you type.
 - **Filters:** price range, category, and "4★ & up".
 - **Recent searches** and a **Recently viewed** row on the home screen.
+
+### 🔐 Your account, everywhere
+- **Sign up, log in and reset your password** by email, with friendly error messages instead of cryptic codes.
+- **Cloud sync:** your cart, wishlist, orders, address and reviews are saved to your account and follow you to any device.
+- **Guest-friendly:** browse and fill your cart without an account. Sign in at checkout and everything you did as a guest comes with you.
+- **Stays signed in** between launches, and signing out clears your data from the device.
+- **Shared reviews:** everyone sees everyone's reviews, and only real buyers can post one.
 
 ### 💳 Checkout that feels real
 - **A persistent cart** that keeps colour and storage variants as separate lines.
@@ -118,6 +130,18 @@ Then choose your destination:
 
 > ✨ **To see Liquid Glass,** open the app on an iPhone running **iOS 26 or later**. Other devices get a polished fallback automatically.
 
+### ☁️ Optional: connect your own backend
+
+Out of the box the app runs in **guest mode**: everything works and is stored on the device. To switch on accounts and cloud sync, plug in your own free [Supabase](https://supabase.com) project:
+
+1. **Create a project** at [supabase.com](https://supabase.com) (the free tier is plenty).
+2. **Add your keys:** copy `.env.example` to `.env.local`, then fill in the **Project URL** and **publishable key** from *Project Settings → API*.
+3. **Build the database:** in *SQL Editor*, run [`supabase/schema.sql`](supabase/schema.sql). It creates the tables and the security rules in one go.
+4. **Allow the app's links:** in *Authentication → URL Configuration → Redirect URLs*, add `luxeshop://**`, `exp://**` and `http://localhost:8081/**` so password-reset emails can open the app.
+5. **Restart with a fresh cache:** `npx expo start --clear` (Expo caches environment values, so `--clear` makes it pick up your new keys). The Profile tab now shows **Log In** and **Create Account**. 🎉
+
+> 💌 Supabase's built-in email service only delivers to your own team's addresses. For public sign-ups, either turn off *Confirm email* (*Authentication → Sign In / Providers → Email*) or connect a free email provider such as [Resend](https://resend.com).
+
 ---
 
 ## 🧠 Under the hood
@@ -131,8 +155,9 @@ Then choose your destination:
 | Navigation | **Expo Router**: file-based routes, typed links, native stack, native tabs |
 | UI | `expo-glass-effect` (Liquid Glass), `expo-image`, `@expo/vector-icons`, Reanimated 4 |
 | Device | `expo-location` (GPS + reverse geocoding), `expo-haptics`, the native share sheet |
-| State | React Context + hooks, one provider per domain |
-| Storage | `@react-native-async-storage/async-storage` |
+| Backend | **Supabase**: Postgres, email auth, Row Level Security |
+| State | React Context + hooks, one provider per domain, synced to the cloud when signed in |
+| Storage | `@react-native-async-storage/async-storage` for guests, offline use and the saved session |
 
 ### How it fits together
 
@@ -153,6 +178,7 @@ flowchart LR
         Address[Address]
         Recent[Recently viewed]
         Theme[Theme]
+        Auth[Auth]
     end
 
     subgraph Data["📦 src/data"]
@@ -162,7 +188,8 @@ flowchart LR
     Screens --> State
     Screens --> Data
     State --> Data
-    State <--> Disk[("💾 AsyncStorage")]
+    State <--> Disk[("💾 AsyncStorage<br/>guest + offline")]
+    State <-->|signed in| Cloud[("☁️ Supabase<br/>Postgres + Auth + RLS")]
 ```
 
 ### Project map
@@ -175,11 +202,14 @@ Luxeshop/
 │   ├── category/[slug].tsx  #    8 categories + Deals / Flash Sale / All
 │   ├── order/[id].tsx       #    Live tracking timeline, cancel, buy again
 │   ├── reviews/[id].tsx     #    Read and write reviews
+│   ├── login · signup · forgot-password · reset-password
 │   └── cart · checkout · search · address · notifications · help …
-├── components/              # 🧩 ProductCard, Price, GlassIconButton, Skeleton
+├── components/              # 🧩 ProductCard, Price, GlassIconButton, Skeleton, AuthLayout
 ├── hooks/                   # ⏱️ useNow, useCountdownToMidnight, useColorScheme
+├── supabase/schema.sql      # 🗄️ Tables + Row Level Security, run once in Supabase
 └── src/
-    ├── context/             # 🧠 Cart, Orders, Wishlist, Reviews, Address, Theme…
+    ├── context/             # 🧠 Auth, Cart, Orders, Wishlist, Reviews, Address, Theme…
+    ├── lib/supabase.ts      # ☁️ Supabase client (guest mode when no keys)
     ├── data/                # 📦 Product catalogue, categories, promo codes
     ├── constants/colors.ts  # 🎨 Light + dark palettes
     ├── utils/               # 🔧 Price formatting, haptics
@@ -198,6 +228,9 @@ These are the parts I'm proudest of, the problems that needed more than a quick 
 - **🎠 A carousel that can't get out of sync.** Tapping a swatch locks the carousel while it animates, with a timeout so the lock always releases. Coming back to the screen snaps it to the selected colour, even if you left halfway through a scroll.
 - **📦 Stock shared across variants.** A 1TB and a 2TB iPhone draw from the same stock, and quantity limits apply everywhere: product page, cart, wishlist and Buy Again.
 - **⏱️ Order stages derived from time.** There's no fake background job. An order's stage is calculated from when it was placed, so it's always correct, even after the app has been closed for hours.
+- **🛡️ Security enforced by the database, not just the app.** Row Level Security means each user can only read and write their own cart, orders and address. A column-level grant lets you cancel an order but never edit its total, and a policy checks your order history before accepting a review, so only real buyers can review.
+- **🔀 Guest-to-account handover.** Sign in and your guest cart, wishlist and orders are merged into your account (quantities reconciled, duplicates skipped), then every change is synced, with cart writes debounced into a single request. Signing out wipes the device copy.
+- **📴 Works without the backend.** No keys? The app runs fully in guest mode. Server unreachable? Local data stays as the fallback and the app keeps working.
 
 ---
 
@@ -222,8 +255,10 @@ Also try: placing an order, then waiting **2 minutes** 👀
 - [x] Live order tracking, cancel, buy again
 - [x] Reviews, search filters, recently viewed
 - [x] Dark mode, haptics, location-based address
-- [ ] 🔐 Sign in with Apple and Google
-- [ ] ☁️ Cloud backend (Supabase) so your account syncs across devices
+- [x] 🔐 Email accounts: sign up, log in, password reset
+- [x] ☁️ Cloud backend (Supabase) so your account syncs across devices
+- [ ] 🍏 Sign in with Apple and Google
+- [ ] 💌 Custom email provider for sign-up confirmations
 - [ ] 💳 Real payments with Stripe, Apple Pay and Google Pay
 - [ ] 🔔 Push notifications for order updates
 
@@ -234,7 +269,7 @@ Also try: placing an order, then waiting **2 minutes** 👀
 - **Phone photos** © Apple and Samsung, used here for demonstration only.
 - **Catalogue products and photos** from [DummyJSON](https://dummyjson.com), a free product dataset for demo apps.
 - **Category icons:** [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (MIT licence).
-- Built with [Expo](https://expo.dev) 💙
+- Built with [Expo](https://expo.dev) 💙 and [Supabase](https://supabase.com) 💚
 
 > Luxeshop is a portfolio project. No real payments are taken and no orders are shipped (sadly 📦).
 
