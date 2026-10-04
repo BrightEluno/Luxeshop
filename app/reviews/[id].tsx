@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -24,7 +24,7 @@ export default function ReviewsScreen() {
   const { Colors, styles } = useThemedStyles(createStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const product = getProduct(id);
-  const { getReviews, hasReviewed, addReview } = useReviews();
+  const { loadReviews, getReviews, hasReviewed, addReview } = useReviews();
   const { orders } = useOrders();
   const { address } = useAddress();
 
@@ -41,13 +41,26 @@ export default function ReviewsScreen() {
   const [writing, setWriting] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
 
-  function handleSubmit() {
-    addReview(id, {
-      user: address.fullName || "You",
+  useEffect(() => {
+    loadReviews(id);
+  }, [id, loadReviews]);
+
+  async function handleSubmit() {
+    setPosting(true);
+    setPostError(null);
+    const { error } = await addReview(id, {
+      user: address.fullName || "Luxeshop shopper",
       rating,
       comment: comment.trim(),
     });
+    setPosting(false);
+    if (error) {
+      setPostError(error);
+      return;
+    }
     successFeedback();
     setWriting(false);
     setRating(0);
@@ -136,13 +149,14 @@ export default function ReviewsScreen() {
                     <Text style={styles.cancelText}>Cancel</Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.submitBtn, rating === 0 && { opacity: 0.4 }]}
-                    disabled={rating === 0}
+                    style={[styles.submitBtn, (rating === 0 || posting) && { opacity: 0.4 }]}
+                    disabled={rating === 0 || posting}
                     onPress={handleSubmit}
                   >
-                    <Text style={styles.submitText}>Post Review</Text>
+                    <Text style={styles.submitText}>{posting ? "Posting…" : "Post Review"}</Text>
                   </Pressable>
                 </View>
+                {postError && <Text style={styles.postError}>{postError}</Text>}
               </View>
             )}
 
@@ -159,7 +173,7 @@ export default function ReviewsScreen() {
               </View>
               <Text style={styles.user}>
                 {item.user}
-                {"mine" in item && <Text style={styles.you}>  · You</Text>}
+                {"mine" in item && item.mine && <Text style={styles.you}>  · You</Text>}
               </Text>
               <Stars rating={item.rating} />
             </View>
@@ -267,5 +281,6 @@ const createStyles = (Colors: Palette) =>
     avatarText: { color: Colors.primary, fontWeight: "900" },
     user: { flex: 1, fontSize: 13, fontWeight: "800", color: Colors.text },
     you: { fontSize: 12, fontWeight: "800", color: Colors.primary },
+    postError: { fontSize: 12, fontWeight: "700", color: Colors.danger },
     comment: { marginTop: 8, fontSize: 13, color: Colors.gray, lineHeight: 18 },
   });

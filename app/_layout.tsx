@@ -6,6 +6,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AddressProvider } from "@/src/context/AddressContext";
+import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { OrdersProvider } from "@/src/context/OrdersContext";
 import { RecentlyViewedProvider } from "@/src/context/RecentlyViewedContext";
@@ -16,19 +17,21 @@ import { WishlistProvider } from "@/src/context/WishlistContext";
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <AddressProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <OrdersProvider>
-              <ReviewsProvider>
-                <RecentlyViewedProvider>
-                  <AppStack />
-                </RecentlyViewedProvider>
-              </ReviewsProvider>
-            </OrdersProvider>
-          </WishlistProvider>
-        </CartProvider>
-      </AddressProvider>
+      <AuthProvider>
+        <AddressProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <OrdersProvider>
+                <ReviewsProvider>
+                  <RecentlyViewedProvider>
+                    <AppStack />
+                  </RecentlyViewedProvider>
+                </ReviewsProvider>
+              </OrdersProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </AddressProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
@@ -70,6 +73,10 @@ function AppStack() {
         <Stack.Screen name="address" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="help" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reset-password" />
       </Stack>
     </NavigationThemeProvider>
   );

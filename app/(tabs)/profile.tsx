@@ -14,6 +14,7 @@ import { useTheme, useThemedStyles, type ThemePreference } from "@/src/context/T
 import { tapFeedback } from "@/src/utils/haptics";
 import type { Palette } from "@/src/constants/colors";
 import { useAddress } from "@/src/context/AddressContext";
+import { useAuth } from "@/src/context/AuthContext";
 import { useCart } from "@/src/context/CartContext";
 import { useOrders } from "@/src/context/OrdersContext";
 import { useWishlist } from "@/src/context/WishlistContext";
@@ -32,6 +33,19 @@ export default function ProfileScreen() {
   const { count: wishlistCount } = useWishlist();
   const { totalItems } = useCart();
   const { preference, setPreference } = useTheme();
+  const { backendEnabled, user, signOut } = useAuth();
+
+  function handleSignOut() {
+    const message = "Sign out of Luxeshop on this device?";
+    if (Platform.OS === "web") {
+      if (window.confirm(message)) signOut();
+      return;
+    }
+    Alert.alert("Sign out", message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: signOut },
+    ]);
+  }
 
   const name = address.fullName || "Guest Shopper";
 
@@ -62,6 +76,26 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Profile</Text>
+
+      {backendEnabled && !user && (
+        <View style={styles.accountCard}>
+          <View style={styles.accountIcon}>
+            <Ionicons name="person-circle-outline" size={26} color={Colors.primary} />
+          </View>
+          <Text style={styles.accountTitle}>Sign in to Luxeshop</Text>
+          <Text style={styles.accountText}>
+            Keep your cart, wishlist, orders and address safe and synced across devices.
+          </Text>
+          <View style={styles.accountButtons}>
+            <Pressable style={styles.accountPrimary} onPress={() => router.push("/login")}>
+              <Text style={styles.accountPrimaryText}>Log In</Text>
+            </Pressable>
+            <Pressable style={styles.accountSecondary} onPress={() => router.push("/signup")}>
+              <Text style={styles.accountSecondaryText}>Create Account</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       <Pressable style={styles.header} onPress={() => router.push("/address")}>
         <View style={styles.avatar}>
@@ -136,6 +170,13 @@ export default function ProfileScreen() {
         })}
       </View>
 
+      {user && (
+        <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
+          <Ionicons name="log-out-outline" size={18} color={Colors.text} />
+          <Text style={styles.signOutText}>Sign out ({user.email})</Text>
+        </Pressable>
+      )}
+
       <Pressable
         style={[styles.dangerBtn, orders.length === 0 && { opacity: 0.4 }]}
         onPress={handleClearOrders}
@@ -205,6 +246,53 @@ const createStyles = (Colors: Palette) =>
   },
   rowLabel: { flex: 1, fontSize: 14, fontWeight: "800", color: Colors.text },
   rowDetail: { maxWidth: 140, fontSize: 12, fontWeight: "700", color: Colors.gray },
+  accountCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    gap: 6,
+  },
+  accountIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountTitle: { marginTop: 4, fontSize: 16, fontWeight: "900", color: Colors.text },
+  accountText: { fontSize: 13, color: Colors.gray, lineHeight: 18 },
+  accountButtons: { flexDirection: "row", gap: 10, marginTop: 8 },
+  accountPrimary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountPrimaryText: { color: Colors.onPrimary, fontWeight: "900" },
+  accountSecondary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountSecondaryText: { color: Colors.primary, fontWeight: "900" },
+  signOutBtn: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  signOutText: { color: Colors.text, fontWeight: "800" },
   sectionLabel: { marginTop: 18, marginBottom: 8, fontSize: 14, fontWeight: "900", color: Colors.text },
   segment: {
     flexDirection: "row",

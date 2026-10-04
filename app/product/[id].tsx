@@ -48,12 +48,14 @@ export default function ProductDetailScreen() {
   const { addItem, remainingStock } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { addViewed } = useRecentlyViewed();
-  const { getReviews } = useReviews();
+  const { loadReviews, getReviews } = useReviews();
   const { width } = useWindowDimensions();
 
   useEffect(() => {
-    if (product) addViewed(product.id);
-  }, [product, addViewed]);
+    if (!product) return;
+    addViewed(product.id);
+    loadReviews(product.id);
+  }, [product, addViewed, loadReviews]);
 
   function scrollToColor(index: number, animated: boolean) {
     scrollTarget.current = index;

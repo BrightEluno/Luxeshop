@@ -15,6 +15,7 @@ import type { Palette } from "@/src/constants/colors";
 import { applyPromo } from "@/src/data/promos";
 import { successFeedback, warningFeedback } from "@/src/utils/haptics";
 import { useAddress } from "../src/context/AddressContext";
+import { useAuth } from "../src/context/AuthContext";
 import { useCart } from "../src/context/CartContext";
 import { useOrders, type PaymentMethod } from "../src/context/OrdersContext";
 import { formatPrice } from "@/src/utils/format";
@@ -26,6 +27,9 @@ export default function CheckoutScreen() {
   const { items, totalPrice, clearCart } = useCart();
   const { summary: deliveryAddress } = useAddress();
   const { addOrder } = useOrders();
+  const { backendEnabled, user } = useAuth();
+  // With accounts switched on, orders belong to an account
+  const needsLogin = backendEnabled && !user;
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [codeInput, setCodeInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
@@ -247,13 +251,23 @@ export default function CheckoutScreen() {
           <Text style={styles.totalPrice}>{formatPrice(grandTotal)}</Text>
         </View>
 
-        <Pressable
-          style={[styles.placeBtn, items.length === 0 && { opacity: 0.4 }]}
-          disabled={items.length === 0}
-          onPress={handlePlaceOrder}
-        >
-          <Text style={styles.placeText}>Place Order</Text>
-        </Pressable>
+        {needsLogin ? (
+          <Pressable
+            style={[styles.placeBtn, items.length === 0 && { opacity: 0.4 }]}
+            disabled={items.length === 0}
+            onPress={() => router.push({ pathname: "/login", params: { redirect: "/checkout" } })}
+          >
+            <Text style={styles.placeText}>Log In to Order</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.placeBtn, items.length === 0 && { opacity: 0.4 }]}
+            disabled={items.length === 0}
+            onPress={handlePlaceOrder}
+          >
+            <Text style={styles.placeText}>Place Order</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
