@@ -36,8 +36,6 @@ Luxeshop is a full shopping experience, not a static UI mock-up. You can browse 
 
 ---
 
-
-
 ## 📸 Take a look
 
 <div align="center">
