@@ -9,8 +9,6 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
-
-      
     },
     "android": {
       "adaptiveIcon": {
